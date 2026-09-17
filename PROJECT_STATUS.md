@@ -4,6 +4,8 @@ Last updated: 2026-09-17
 Current version: 0.1.0
 Status: active development
 
+License: GNU Affero General Public License v3.0 or later
+
 ## Current scope
 
 SteamRoller v1 is a read-only validation and evidence-collection tool for
@@ -204,6 +206,13 @@ status.
 - repository backup files use mode `0600`;
 - normal report directories use mode `0750`;
 - precheck never modifies the managed host.
+
+## License and public development
+
+SteamRoller is publicly developed under the GNU Affero General Public License,
+version 3 or any later version (`AGPL-3.0-or-later`). Network users must be
+offered the corresponding source code as required by the license. The complete
+license text is provided in `LICENSE`.
 
 ## Source and future installation layout
 

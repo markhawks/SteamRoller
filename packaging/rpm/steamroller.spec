@@ -2,8 +2,8 @@ Name:           steamroller
 Version:        0.1.0
 Release:        1%{?dist}
 Summary:        Safe RHEL 9 remote patching precheck automation
-License:        Proprietary
-URL:            https://example.invalid/steamroller
+License:        AGPL-3.0-or-later
+URL:            https://github.com/markhawks/SteamRoller
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
 
@@ -42,6 +42,7 @@ install -m 0644 config/hosts.yml.example \
 ln -s /opt/steamroller/bin/steamroller %{buildroot}%{_bindir}/steamroller
 
 %files
+%license LICENSE
 %doc README.md
 /opt/steamroller
 %{_bindir}/steamroller
