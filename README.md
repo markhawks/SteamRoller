@@ -1,5 +1,11 @@
 # SteamRoller
 
+<p align="center">
+  <img src="docs/assets/steamroller-banner.jpeg"
+       alt="SteamRoller automated RHEL validation"
+       width="900">
+</p>
+
 SteamRoller is a conservative Ansible workflow for validating and, in later
 phases, patching remote RHEL 9 systems. The control node may run RHEL 9 or
 RHEL 10.
