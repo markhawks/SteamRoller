@@ -1,0 +1,33 @@
+# Runtime reports and backups (may contain host and repository data)
+/reports/
+
+# Real inventories are local to each installation
+/inventories/*/hosts.yml
+/inventories/*/host_vars/
+/inventories/*/group_vars/vault.yml
+
+# Credentials and keys
+*.pem
+*.key
+*.vault
+*.retry
+.env
+
+# Python and Ansible runtime files
+__pycache__/
+*.py[cod]
+/.ansible/
+/.agents/
+/.codex/
+
+# Build products
+/build/
+/dist/
+*.rpm
+*.tar.gz
+
+# Editor and operating-system files
+.idea/
+.vscode/
+*~
+.DS_Store

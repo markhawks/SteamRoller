@@ -1,0 +1,61 @@
+---
+- name: Verify SSH and Python connectivity
+  ansible.builtin.ping:
+  register: steamroller_ping
+
+- name: Verify privilege escalation and root execution
+  ansible.builtin.command: id -u
+  become: true
+  changed_when: false
+  register: steamroller_root_id
+  failed_when: false
+
+- name: Read remote server name
+  ansible.builtin.command: hostname --fqdn
+  changed_when: false
+  register: steamroller_remote_hostname
+  failed_when: false
+
+- name: Select safe server directory name
+  ansible.builtin.set_fact:
+    steamroller_server_name: >-
+      {{ (steamroller_remote_hostname.stdout | trim
+          if steamroller_remote_hostname.rc == 0 and steamroller_remote_hostname.stdout | trim | length > 0
+          else inventory_hostname) | regex_replace('[^A-Za-z0-9._-]', '_') }}
+
+- name: Determine connectivity result
+  ansible.builtin.set_fact:
+    steamroller_connectivity_result: >-
+      {{ 'PASS' if (steamroller_ping.ping == 'pong' and
+                    steamroller_root_id.rc == 0 and
+                    steamroller_root_id.stdout | trim == '0') else 'FAIL' }}
+
+- name: Create connectivity report directory on control node
+  ansible.builtin.file:
+    path: "{{ steamroller_report_root }}/{{ steamroller_server_name }}/{{ steamroller_run_id }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+
+- name: Persist connectivity evidence on control node
+  ansible.builtin.copy:
+    dest: "{{ steamroller_report_root }}/{{ steamroller_server_name }}/{{ steamroller_run_id }}/connectivity.txt"
+    mode: "0640"
+    content: |
+      STEAMROLLER CONNECTIVITY
+      RUN_ID={{ steamroller_run_id }}
+      HOST={{ inventory_hostname }}
+      SERVER_NAME={{ steamroller_server_name }}
+      ANSIBLE_HOST={{ ansible_host | default(inventory_hostname) }}
+      ANSIBLE_USER={{ ansible_user | default('unspecified') }}
+      SSH={{ 'PASS' if steamroller_ping.ping == 'pong' else 'FAIL' }}
+      BECOME_ROOT={{ 'PASS' if (steamroller_root_id.rc == 0 and steamroller_root_id.stdout | trim == '0') else 'FAIL' }}
+      RESULT={{ steamroller_connectivity_result }}
+  delegate_to: localhost
+  become: false
+
+- name: Stop host after failed connectivity validation
+  ansible.builtin.fail:
+    msg: "Connectivity validation failed; see the control-node report."
+  when: steamroller_connectivity_result == 'FAIL'

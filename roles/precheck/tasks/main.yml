@@ -1,0 +1,754 @@
+---
+- name: Initialize precheck findings
+  ansible.builtin.set_fact:
+    steamroller_failures: []
+    steamroller_warnings: []
+    steamroller_inode_warning_mounts: []
+    steamroller_inode_failure_mounts: []
+    steamroller_required_readonly_mounts: []
+    steamroller_server_name: "{{ ansible_fqdn | regex_replace('[^A-Za-z0-9._-]', '_') }}"
+    steamroller_precheck_started_epoch: "{{ lookup('pipe', 'date +%s') | int }}"
+
+- name: Collect operating system release
+  ansible.builtin.command: cat /etc/redhat-release
+  changed_when: false
+  register: steamroller_redhat_release
+  failed_when: false
+
+- name: Query Red Hat release package
+  ansible.builtin.command: rpm -q redhat-release
+  changed_when: false
+  register: steamroller_release_rpm
+  failed_when: false
+
+- name: Collect running kernel
+  ansible.builtin.command: uname -r
+  changed_when: false
+  register: steamroller_running_kernel
+  failed_when: false
+
+- name: Collect installed kernels
+  ansible.builtin.command: rpm -q kernel-core
+  changed_when: false
+  register: steamroller_installed_kernels
+  failed_when: false
+
+- name: Collect installed kernels with installation time
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - -q
+      - --qf
+      - "%{INSTALLTIME}|%{VERSION}-%{RELEASE}.%{ARCH}\n"
+      - kernel-core
+  changed_when: false
+  register: steamroller_installed_kernel_timeline
+  failed_when: false
+
+- name: Collect uptime details
+  ansible.builtin.command: uptime -s
+  changed_when: false
+  register: steamroller_uptime_since
+  failed_when: false
+
+- name: Read Red Hat subscription identity
+  ansible.builtin.command: subscription-manager identity
+  changed_when: false
+  register: steamroller_subscription_identity
+  failed_when: false
+
+- name: Read Red Hat subscription status
+  ansible.builtin.command: subscription-manager status
+  changed_when: false
+  register: steamroller_subscription_status
+  failed_when: false
+
+- name: Detect active package-manager processes
+  ansible.builtin.command: pgrep -x dnf yum rpm
+  changed_when: false
+  register: steamroller_package_processes
+  failed_when: false
+
+- name: Discover configured DNF repository files
+  ansible.builtin.find:
+    paths: /etc/yum.repos.d
+    patterns: "*.repo"
+    file_type: file
+    recurse: false
+  register: steamroller_repo_file_scan
+
+- name: Collect enabled repository provenance
+  ansible.builtin.command: dnf -q repolist --enabled -v
+  changed_when: false
+  register: steamroller_repository_details
+  failed_when: false
+
+- name: Collect enabled repositories
+  ansible.builtin.command: dnf -q repolist --enabled
+  changed_when: false
+  register: steamroller_repositories
+  failed_when: false
+
+- name: Validate DNF dependency state
+  ansible.builtin.command: dnf -q check
+  changed_when: false
+  register: steamroller_dnf_check
+  failed_when: false
+
+- name: Collect available updates
+  ansible.builtin.command: dnf -q check-update
+  changed_when: false
+  register: steamroller_updates
+  failed_when: false
+
+- name: Collect filesystem usage
+  ansible.builtin.command: df -hP
+  changed_when: false
+  register: steamroller_df
+  failed_when: false
+
+- name: Collect inode usage
+  ansible.builtin.command: df -iP
+  changed_when: false
+  register: steamroller_df_inodes
+  failed_when: false
+
+- name: Collect mount state
+  ansible.builtin.command: findmnt
+  changed_when: false
+  register: steamroller_findmnt
+  failed_when: false
+
+- name: Collect mandatory mounts from fstab
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --fstab
+      - --raw
+      - --noheadings
+      - --output
+      - TARGET,SOURCE,FSTYPE,OPTIONS
+  changed_when: false
+  register: steamroller_fstab_mounts
+  failed_when: false
+
+- name: Collect IP address state
+  ansible.builtin.command: ip address show
+  changed_when: false
+  register: steamroller_ip_address
+  failed_when: false
+
+- name: Collect routing state
+  ansible.builtin.command: ip route show
+  changed_when: false
+  register: steamroller_ip_route
+  failed_when: false
+
+- name: Collect NetworkManager device state
+  ansible.builtin.command: nmcli device status
+  changed_when: false
+  register: steamroller_nmcli_devices
+  failed_when: false
+
+- name: Collect failed services
+  ansible.builtin.command: systemctl --failed --no-legend --no-pager
+  changed_when: false
+  register: steamroller_failed_services
+  failed_when: false
+
+- name: Collect running services
+  ansible.builtin.command: systemctl list-units --type=service --state=running --no-legend --no-pager
+  changed_when: false
+  register: steamroller_running_services
+  failed_when: false
+
+- name: Collect enabled services
+  ansible.builtin.command: systemctl list-unit-files --type=service --state=enabled --no-legend --no-pager
+  changed_when: false
+  register: steamroller_enabled_services
+  failed_when: false
+
+- name: Check whether a reboot was already required
+  ansible.builtin.command: dnf needs-restarting -r
+  changed_when: false
+  register: steamroller_reboot_required
+  failed_when: false
+
+- name: Derive update and service statistics
+  ansible.builtin.set_fact:
+    steamroller_update_lines: >-
+      {{ steamroller_updates.stdout_lines | default([]) |
+         select('match', '^[A-Za-z0-9_.+:-]+[.](x86_64|noarch|aarch64|ppc64le|s390x|i686)[ ]+') | list }}
+    steamroller_kernel_updates: >-
+      {{ steamroller_updates.stdout_lines | default([]) |
+         select('match', '^kernel[^ ]*[.]') | list }}
+    steamroller_kernel_core_updates: >-
+      {{ steamroller_updates.stdout_lines | default([]) |
+         select('match', '^kernel-core[.]') | list }}
+    steamroller_systemd_updates: >-
+      {{ steamroller_updates.stdout_lines | default([]) |
+         select('match', '^systemd[^ ]*[.]') | list }}
+    steamroller_glibc_updates: >-
+      {{ steamroller_updates.stdout_lines | default([]) |
+         select('match', '^glibc[^ ]*[.]') | list }}
+    steamroller_failed_service_lines: >-
+      {{ steamroller_failed_services.stdout_lines | default([]) |
+         reject('equalto', '') | list }}
+    steamroller_precheck_finished_epoch: "{{ lookup('pipe', 'date +%s') | int }}"
+
+- name: Determine planned running kernel
+  ansible.builtin.set_fact:
+    steamroller_planned_kernel: >-
+      {{ (((steamroller_kernel_core_updates | first).split())[1] + '.' +
+          (((steamroller_kernel_core_updates | first).split())[0].split('.', 1))[1])
+         if steamroller_kernel_core_updates | length > 0 else '' }}
+
+- name: Classify configured repository files
+  ansible.builtin.set_fact:
+    steamroller_repo_files: >-
+      {{ steamroller_repo_file_scan.files | default([]) |
+         map(attribute='path') | map('basename') | sort | list }}
+    steamroller_repository_provenance: >-
+      {{ steamroller_repository_details.stdout_lines | default([]) |
+         select('match', '^Repo-(id|name|filename)[ ]*:') | list }}
+
+- name: Identify custom repository files
+  ansible.builtin.set_fact:
+    steamroller_custom_repo_files: >-
+      {{ steamroller_repo_files | difference(steamroller_allowed_repo_files) | sort }}
+    steamroller_enabled_repo_files: >-
+      {{ steamroller_repository_details.stdout_lines | default([]) |
+         select('match', '^Repo-filename[ ]*:') |
+         map('regex_replace', '^Repo-filename[ ]*:[ ]*.*/', '') | unique | sort | list }}
+
+- name: Identify enabled custom repository files
+  ansible.builtin.set_fact:
+    steamroller_enabled_custom_repo_files: >-
+      {{ steamroller_enabled_repo_files | difference(steamroller_allowed_repo_files) | sort }}
+
+- name: Select filesystems backing root and boot
+  ansible.builtin.set_fact:
+    steamroller_root_mount: >-
+      {{ ansible_mounts | selectattr('mount', 'equalto', '/') | first }}
+    steamroller_boot_mount: >-
+      {{ (ansible_mounts | selectattr('mount', 'equalto', '/boot') | first) |
+         default(ansible_mounts | selectattr('mount', 'equalto', '/') | first, true) }}
+
+- name: Calculate absolute free disk space
+  ansible.builtin.set_fact:
+    steamroller_root_free_mb: "{{ steamroller_root_mount.size_available | int // 1048576 }}"
+    steamroller_boot_free_mb: "{{ steamroller_boot_mount.size_available | int // 1048576 }}"
+    steamroller_root_total_mb: "{{ steamroller_root_mount.size_total | int // 1048576 }}"
+    steamroller_boot_total_mb: "{{ steamroller_boot_mount.size_total | int // 1048576 }}"
+
+- name: Derive newest installed kernel
+  ansible.builtin.set_fact:
+    steamroller_installed_kernel_timeline_lines: >-
+      {{ steamroller_installed_kernel_timeline.stdout_lines | default([]) |
+         select('match', '^[0-9]+[|]') | sort(reverse=true) | list }}
+
+- name: Select newest installed kernel version
+  ansible.builtin.set_fact:
+    steamroller_newest_installed_kernel: >-
+      {{ ((steamroller_installed_kernel_timeline_lines | first).split('|', 1))[1]
+         if steamroller_installed_kernel_timeline_lines | length > 0 else '' }}
+
+- name: Derive mandatory fstab mount targets
+  ansible.builtin.set_fact:
+    steamroller_required_mounts: >-
+      {{ steamroller_fstab_mounts.stdout_lines | default([]) |
+         reject('search', '[ ]swap[ ]') |
+         reject('search', '(^|[ ,])noauto(,|$)') |
+         map('split') | map('first') | unique | sort | list }}
+    steamroller_mounted_targets: >-
+      {{ ansible_mounts | map(attribute='mount') | unique | sort | list }}
+
+- name: Identify missing mandatory mounts
+  ansible.builtin.set_fact:
+    steamroller_missing_required_mounts: >-
+      {{ steamroller_required_mounts | difference(steamroller_mounted_targets) | sort }}
+
+- name: Identify read-only mandatory mounts
+  ansible.builtin.set_fact:
+    steamroller_required_readonly_mounts: "{{ steamroller_required_readonly_mounts + [item.mount] }}"
+  loop: "{{ ansible_mounts }}"
+  when:
+    - item.mount in steamroller_required_mounts
+    - "'ro' in item.options.split(',')"
+
+- name: Classify inode usage failures
+  ansible.builtin.set_fact:
+    steamroller_inode_failure_mounts: "{{ steamroller_inode_failure_mounts + [item.mount] }}"
+  loop: "{{ ansible_mounts }}"
+  when:
+    - item.inode_total | int > 0
+    - (item.inode_used | float * 100.0 / item.inode_total | float) >= steamroller_inode_failure_percent | float
+
+- name: Classify inode usage warnings
+  ansible.builtin.set_fact:
+    steamroller_inode_warning_mounts: "{{ steamroller_inode_warning_mounts + [item.mount] }}"
+  loop: "{{ ansible_mounts }}"
+  when:
+    - item.inode_total | int > 0
+    - (item.inode_used | float * 100.0 / item.inode_total | float) >= steamroller_inode_warning_percent | float
+    - (item.inode_used | float * 100.0 / item.inode_total | float) < steamroller_inode_failure_percent | float
+
+- name: Determine uptime severity
+  ansible.builtin.set_fact:
+    steamroller_uptime_severity: >-
+      {{ 'CRITICAL WARNING' if (ansible_uptime_seconds | int // 86400) >= steamroller_uptime_critical_days | int
+         else ('HIGH WARNING' if (ansible_uptime_seconds | int // 86400) >= steamroller_uptime_high_days | int
+         else ('WARNING' if (ansible_uptime_seconds | int // 86400) >= steamroller_uptime_warning_days | int
+         else 'PASS')) }}
+
+- name: Build per-check result matrix
+  ansible.builtin.set_fact:
+    steamroller_checks:
+      - name: operating_system
+        status: "{{ 'PASS' if (ansible_distribution == 'RedHat' and ansible_distribution_major_version == '9' and steamroller_redhat_release.rc == 0) else 'FAIL' }}"
+        duration: "{{ steamroller_redhat_release.delta | default('n/a') }}"
+      - name: release_package
+        status: "{{ 'PASS' if steamroller_release_rpm.rc == 0 else 'FAIL' }}"
+        duration: "{{ steamroller_release_rpm.delta | default('n/a') }}"
+      - name: running_kernel
+        status: "{{ 'PASS' if steamroller_running_kernel.rc == 0 else 'FAIL' }}"
+        duration: "{{ steamroller_running_kernel.delta | default('n/a') }}"
+      - name: installed_kernels
+        status: >-
+          {{ 'FAIL' if (steamroller_installed_kernels.rc != 0 or steamroller_installed_kernel_timeline.rc != 0)
+             else ('WARNING' if steamroller_running_kernel.stdout | trim != steamroller_newest_installed_kernel else 'PASS') }}
+        duration: "{{ steamroller_installed_kernels.delta | default('n/a') }}"
+      - name: uptime
+        status: "{{ 'PASS' if steamroller_uptime_severity == 'PASS' else 'WARNING' }}"
+        severity: "{{ steamroller_uptime_severity }}"
+        duration: "{{ steamroller_uptime_since.delta | default('n/a') }}"
+      - name: redhat_registration
+        status: "{{ 'PASS' if steamroller_subscription_identity.rc == 0 else 'FAIL' }}"
+        duration: "{{ steamroller_subscription_identity.delta | default('n/a') }}"
+      - name: repositories
+        status: "{{ 'PASS' if steamroller_repositories.rc == 0 else 'FAIL' }}"
+        duration: "{{ steamroller_repositories.delta | default('n/a') }}"
+      - name: custom_repository_files
+        status: >-
+          {{ 'PASS' if steamroller_custom_repo_files | length == 0 or steamroller_custom_repo_policy == 'allow'
+             else ('FAIL' if steamroller_custom_repo_policy == 'fail' else 'WARNING') }}
+        duration: "{{ steamroller_repository_details.delta | default('n/a') }}"
+      - name: package_manager_concurrency
+        status: "{{ 'FAIL' if steamroller_package_processes.rc == 0 else 'PASS' }}"
+        duration: "{{ steamroller_package_processes.delta | default('n/a') }}"
+      - name: dnf_health
+        status: "{{ 'PASS' if steamroller_dnf_check.rc == 0 else 'FAIL' }}"
+        duration: "{{ steamroller_dnf_check.delta | default('n/a') }}"
+      - name: available_updates
+        status: "{{ 'PASS' if steamroller_updates.rc in [0, 100] else 'FAIL' }}"
+        duration: "{{ steamroller_updates.delta | default('n/a') }}"
+      - name: filesystem_usage
+        status: >-
+          {{ 'FAIL' if (steamroller_df.rc != 0 or
+                        steamroller_root_free_mb | int < steamroller_root_min_free_mb | int or
+                        steamroller_boot_free_mb | int < steamroller_boot_min_free_mb | int)
+             else 'PASS' }}
+        duration: "{{ steamroller_df.delta | default('n/a') }}"
+      - name: inode_usage
+        status: >-
+          {{ 'FAIL' if (steamroller_df_inodes.rc != 0 or steamroller_inode_failure_mounts | length > 0)
+             else ('WARNING' if steamroller_inode_warning_mounts | length > 0 else 'PASS') }}
+        duration: "{{ steamroller_df_inodes.delta | default('n/a') }}"
+      - name: mounts
+        status: >-
+          {{ 'FAIL' if (steamroller_findmnt.rc != 0 or steamroller_fstab_mounts.rc != 0 or
+                        steamroller_missing_required_mounts | length > 0 or
+                        steamroller_required_readonly_mounts | length > 0) else 'PASS' }}
+        duration: "{{ steamroller_findmnt.delta | default('n/a') }}"
+      - name: network_addresses
+        status: "{{ 'PASS' if steamroller_ip_address.rc == 0 else 'FAIL' }}"
+        duration: "{{ steamroller_ip_address.delta | default('n/a') }}"
+      - name: network_routes
+        status: "{{ 'PASS' if steamroller_ip_route.rc == 0 else 'FAIL' }}"
+        duration: "{{ steamroller_ip_route.delta | default('n/a') }}"
+      - name: networkmanager
+        status: "{{ 'PASS' if steamroller_nmcli_devices.rc == 0 else 'SKIPPED' }}"
+        duration: "{{ steamroller_nmcli_devices.delta | default('n/a') }}"
+      - name: failed_services
+        status: >-
+          {{ 'FAIL' if steamroller_failed_services.rc != 0
+             else ('WARNING' if steamroller_failed_services.stdout | trim | length > 0 else 'PASS') }}
+        duration: "{{ steamroller_failed_services.delta | default('n/a') }}"
+      - name: reboot_required
+        status: "{{ 'WARNING' if steamroller_reboot_required.rc == 1 else ('PASS' if steamroller_reboot_required.rc == 0 else 'SKIPPED') }}"
+        duration: "{{ steamroller_reboot_required.delta | default('n/a') }}"
+
+- name: Add unsupported operating system failure
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + ['Only RHEL 9.x managed hosts are supported'] }}"
+  when: ansible_distribution != 'RedHat' or ansible_distribution_major_version != '9'
+
+- name: Add mandatory collection failures
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + [item.message] }}"
+  loop:
+    - result: "{{ steamroller_redhat_release }}"
+      message: Unable to read the RHEL release
+    - result: "{{ steamroller_release_rpm }}"
+      message: Unable to query the Red Hat release package
+    - result: "{{ steamroller_running_kernel }}"
+      message: Unable to collect the running kernel
+    - result: "{{ steamroller_installed_kernels }}"
+      message: Unable to collect installed kernels
+    - result: "{{ steamroller_installed_kernel_timeline }}"
+      message: Unable to determine the newest installed kernel
+    - result: "{{ steamroller_uptime_since }}"
+      message: Unable to collect uptime information
+    - result: "{{ steamroller_df }}"
+      message: Unable to collect filesystem usage
+    - result: "{{ steamroller_df_inodes }}"
+      message: Unable to collect inode usage
+    - result: "{{ steamroller_findmnt }}"
+      message: Unable to collect active mounts
+    - result: "{{ steamroller_fstab_mounts }}"
+      message: Unable to read mandatory mounts from fstab
+    - result: "{{ steamroller_ip_address }}"
+      message: Unable to collect network addresses
+    - result: "{{ steamroller_ip_route }}"
+      message: Unable to collect network routes
+    - result: "{{ steamroller_failed_services }}"
+      message: Unable to collect failed services
+    - result: "{{ steamroller_running_services }}"
+      message: Unable to collect running services
+    - result: "{{ steamroller_enabled_services }}"
+      message: Unable to collect enabled services
+  loop_control:
+    label: "{{ item.message }}"
+  when: item.result.rc | int != 0
+
+- name: Add registration failure
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + ['Host is not registered with Red Hat'] }}"
+  when:
+    - steamroller_registration_mode == 'redhat_cdn'
+    - steamroller_subscription_identity.rc != 0
+
+- name: Add repository failure
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + ['Enabled Red Hat repositories are unavailable'] }}"
+  when: steamroller_repositories.rc != 0
+
+- name: Add missing required repository failures
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + ['Required repository is not enabled: ' + item] }}"
+  loop: "{{ steamroller_required_repositories }}"
+  when: item not in steamroller_repositories.stdout
+
+- name: Add custom repository file failures
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + ['Custom repository file requires manual review: ' + item] }}"
+  loop: "{{ steamroller_custom_repo_files }}"
+  when: steamroller_custom_repo_policy == 'fail'
+
+- name: Add custom repository file warnings
+  ansible.builtin.set_fact:
+    steamroller_warnings: "{{ steamroller_warnings + ['Custom repository file requires manual review: ' + item] }}"
+  loop: "{{ steamroller_custom_repo_files }}"
+  when: steamroller_custom_repo_policy == 'warning'
+
+- name: Add DNF health failure
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + ['DNF dependency check failed'] }}"
+  when: steamroller_dnf_check.rc != 0
+
+- name: Add update-query failure
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + ['DNF update query failed'] }}"
+  when: steamroller_updates.rc not in [0, 100]
+
+- name: Add package-manager concurrency failure
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + ['Another package-manager process is active'] }}"
+  when: steamroller_package_processes.rc == 0
+
+- name: Add old running kernel warning
+  ansible.builtin.set_fact:
+    steamroller_warnings: >-
+      {{ steamroller_warnings +
+         ['Running kernel ' + (steamroller_running_kernel.stdout | trim) +
+          ' is older than newest installed kernel ' + steamroller_newest_installed_kernel] }}
+  when:
+    - steamroller_newest_installed_kernel | length > 0
+    - steamroller_running_kernel.stdout | trim != steamroller_newest_installed_kernel
+
+- name: Add missing fstab mount failures
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + ['Mandatory fstab mount is not mounted: ' + item] }}"
+  loop: "{{ steamroller_missing_required_mounts }}"
+
+- name: Add read-only fstab mount failures
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + ['Mandatory fstab mount is read-only: ' + item] }}"
+  loop: "{{ steamroller_required_readonly_mounts }}"
+
+- name: Add inode exhaustion failures
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + ['Inode usage is at or above failure threshold: ' + item] }}"
+  loop: "{{ steamroller_inode_failure_mounts }}"
+
+- name: Add inode usage warnings
+  ansible.builtin.set_fact:
+    steamroller_warnings: "{{ steamroller_warnings + ['Inode usage is at or above warning threshold: ' + item] }}"
+  loop: "{{ steamroller_inode_warning_mounts }}"
+
+- name: Add high disk usage warnings
+  ansible.builtin.set_fact:
+    steamroller_warnings: "{{ steamroller_warnings + ['Filesystem at or above high-use threshold: ' + item.mount] }}"
+  loop: "{{ ansible_mounts }}"
+  when:
+    - item.mount in ['/', '/boot', '/boot/efi', '/var', '/var/log', '/tmp']
+    - (100 - (item.size_available | int * 100 / item.size_total | int)) | int >= steamroller_disk_critical_percent | int
+
+- name: Add insufficient root free-space failure
+  ansible.builtin.set_fact:
+    steamroller_failures: >-
+      {{ steamroller_failures +
+         ['Root filesystem has ' + (steamroller_root_free_mb | string) +
+          ' MiB free; minimum is ' + (steamroller_root_min_free_mb | string) + ' MiB'] }}
+  when: steamroller_root_free_mb | int < steamroller_root_min_free_mb | int
+
+- name: Add insufficient boot free-space failure
+  ansible.builtin.set_fact:
+    steamroller_failures: >-
+      {{ steamroller_failures +
+         ['/boot filesystem has ' + (steamroller_boot_free_mb | string) +
+          ' MiB free; minimum is ' + (steamroller_boot_min_free_mb | string) + ' MiB'] }}
+  when: steamroller_boot_free_mb | int < steamroller_boot_min_free_mb | int
+
+- name: Add disk usage warnings
+  ansible.builtin.set_fact:
+    steamroller_warnings: "{{ steamroller_warnings + ['Filesystem above warning usage: ' + item.mount] }}"
+  loop: "{{ ansible_mounts }}"
+  when:
+    - item.mount in ['/', '/boot', '/boot/efi', '/var', '/var/log', '/tmp']
+    - (100 - (item.size_available | int * 100 / item.size_total | int)) | int >= steamroller_disk_warning_percent | int
+    - (100 - (item.size_available | int * 100 / item.size_total | int)) | int < steamroller_disk_critical_percent | int
+
+- name: Add read-only filesystem failures
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + ['Critical filesystem is read-only: ' + item.mount] }}"
+  loop: "{{ ansible_mounts }}"
+  when:
+    - item.mount in ['/', '/boot', '/boot/efi', '/var', '/var/log', '/tmp']
+    - "'ro' in item.options.split(',')"
+
+- name: Add uptime warnings
+  ansible.builtin.set_fact:
+    steamroller_warnings: >-
+      {{ steamroller_warnings + [steamroller_uptime_severity + ': uptime is ' +
+         ((ansible_uptime_seconds | int // 86400) | string) + ' days'] }}
+  when: steamroller_uptime_severity != 'PASS'
+
+- name: Add pre-existing failed-services warning
+  ansible.builtin.set_fact:
+    steamroller_warnings: "{{ steamroller_warnings + ['One or more services were already failed before patching'] }}"
+  when: steamroller_failed_services.stdout | trim | length > 0
+
+- name: Add pre-existing reboot requirement warning
+  ansible.builtin.set_fact:
+    steamroller_warnings: "{{ steamroller_warnings + ['A reboot was already required before patching'] }}"
+  when: steamroller_reboot_required.rc == 1
+
+- name: Determine final precheck status
+  ansible.builtin.set_fact:
+    steamroller_precheck_status: >-
+      {{ 'FAIL' if steamroller_failures | length > 0 else
+         ('WARNING' if steamroller_warnings | length > 0 else 'PASS') }}
+
+- name: Assemble structured precheck summary
+  ansible.builtin.set_fact:
+    steamroller_summary:
+      run_id: "{{ steamroller_run_id }}"
+      host: "{{ inventory_hostname }}"
+      fqdn: "{{ ansible_fqdn }}"
+      environment: "{{ steamroller_environment | default('unspecified') }}"
+      timestamp_utc: "{{ ansible_date_time.iso8601 }}"
+      status: "{{ steamroller_precheck_status }}"
+      registration_mode: "{{ steamroller_registration_mode }}"
+      os:
+        distribution: "{{ ansible_distribution }}"
+        version: "{{ ansible_distribution_version }}"
+        release_text: "{{ steamroller_redhat_release.stdout | default('') }}"
+      kernel:
+        running: "{{ steamroller_running_kernel.stdout | default('') }}"
+        installed: "{{ steamroller_installed_kernels.stdout_lines | default([]) }}"
+        newest_installed: "{{ steamroller_newest_installed_kernel }}"
+        planned: "{{ steamroller_planned_kernel }}"
+      uptime_days: "{{ ansible_uptime_seconds | int // 86400 }}"
+      uptime_severity: "{{ steamroller_uptime_severity }}"
+      duration_seconds: "{{ steamroller_precheck_finished_epoch | int - steamroller_precheck_started_epoch | int }}"
+      updates:
+        total: "{{ steamroller_update_lines | length }}"
+        kernel: "{{ steamroller_kernel_updates | length }}"
+        systemd: "{{ steamroller_systemd_updates | length }}"
+        glibc: "{{ steamroller_glibc_updates | length }}"
+      repositories:
+        configured_files: "{{ steamroller_repo_files }}"
+        custom_files: "{{ steamroller_custom_repo_files }}"
+        enabled_files: "{{ steamroller_enabled_repo_files }}"
+        enabled_custom_files: "{{ steamroller_enabled_custom_repo_files }}"
+        custom_repo_policy: "{{ steamroller_custom_repo_policy }}"
+      filesystems: "{{ ansible_mounts }}"
+      inode_thresholds:
+        warning_percent: "{{ steamroller_inode_warning_percent }}"
+        failure_percent: "{{ steamroller_inode_failure_percent }}"
+        warning_mounts: "{{ steamroller_inode_warning_mounts }}"
+        failure_mounts: "{{ steamroller_inode_failure_mounts }}"
+      fstab_mounts:
+        required: "{{ steamroller_required_mounts }}"
+        missing: "{{ steamroller_missing_required_mounts }}"
+        read_only: "{{ steamroller_required_readonly_mounts }}"
+      disk_space:
+        root:
+          path: /
+          backing_mount: "{{ steamroller_root_mount.mount }}"
+          free_mb: "{{ steamroller_root_free_mb }}"
+          total_mb: "{{ steamroller_root_total_mb }}"
+          minimum_free_mb: "{{ steamroller_root_min_free_mb }}"
+          status: "{{ 'PASS' if steamroller_root_free_mb | int >= steamroller_root_min_free_mb | int else 'FAIL' }}"
+        boot:
+          path: /boot
+          backing_mount: "{{ steamroller_boot_mount.mount }}"
+          free_mb: "{{ steamroller_boot_free_mb }}"
+          total_mb: "{{ steamroller_boot_total_mb }}"
+          minimum_free_mb: "{{ steamroller_boot_min_free_mb }}"
+          status: "{{ 'PASS' if steamroller_boot_free_mb | int >= steamroller_boot_min_free_mb | int else 'FAIL' }}"
+      failed_services: "{{ steamroller_failed_service_lines }}"
+      checks: "{{ steamroller_checks }}"
+      failures: "{{ steamroller_failures }}"
+      warnings: "{{ steamroller_warnings }}"
+
+- name: Create precheck report directory on control node
+  ansible.builtin.file:
+    path: "{{ steamroller_report_root }}/{{ steamroller_server_name }}/{{ steamroller_run_id }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+
+- name: Persist human-readable precheck report
+  ansible.builtin.template:
+    src: precheck.txt.j2
+    dest: "{{ steamroller_report_root }}/{{ steamroller_server_name }}/{{ steamroller_run_id }}/precheck.txt"
+    mode: "0640"
+  delegate_to: localhost
+  become: false
+
+- name: Persist separate precheck evidence files
+  ansible.builtin.copy:
+    dest: "{{ steamroller_report_root }}/{{ steamroller_server_name }}/{{ steamroller_run_id }}/{{ item.name }}"
+    mode: "0640"
+    content: "{{ item.content }}\n"
+  loop:
+    - name: os.txt
+      content: |-
+        {{ steamroller_redhat_release.stdout | default('') }}
+        {{ steamroller_release_rpm.stdout | default('') }}
+        Ansible facts: {{ ansible_distribution }} {{ ansible_distribution_version }}
+    - name: kernel.txt
+      content: |-
+        Running: {{ steamroller_running_kernel.stdout | default('') }}
+        Newest installed: {{ steamroller_newest_installed_kernel }}
+        Installed:
+        {{ steamroller_installed_kernels.stdout | default('') }}
+    - name: uptime.txt
+      content: |-
+        Boot time: {{ steamroller_uptime_since.stdout | default('') }}
+        Uptime days: {{ ansible_uptime_seconds | int // 86400 }}
+    - name: subscription.txt
+      content: |-
+        IDENTITY
+        {{ steamroller_subscription_identity.stdout | default('') }}
+        {{ steamroller_subscription_identity.stderr | default('') }}
+        STATUS
+        {{ steamroller_subscription_status.stdout | default('') }}
+        {{ steamroller_subscription_status.stderr | default('') }}
+    - name: repositories.txt
+      content: |-
+        ENABLED REPOSITORIES
+        {{ steamroller_repositories.stdout | default('') }}
+        {{ steamroller_repositories.stderr | default('') }}
+        DNF CHECK rc={{ steamroller_dnf_check.rc }}
+        {{ steamroller_dnf_check.stdout | default('') }}
+        {{ steamroller_dnf_check.stderr | default('') }}
+    - name: repo-files.txt
+      content: |-
+        POLICY={{ steamroller_custom_repo_policy }}
+        ALLOWED={{ steamroller_allowed_repo_files | join(',') }}
+        CONFIGURED={{ steamroller_repo_files | join(',') }}
+        CUSTOM={{ steamroller_custom_repo_files | join(',') }}
+        ENABLED_FILES={{ steamroller_enabled_repo_files | join(',') }}
+        ENABLED_CUSTOM={{ steamroller_enabled_custom_repo_files | join(',') }}
+
+        ENABLED REPOSITORY PROVENANCE
+        {% for line in steamroller_repository_provenance %}{{ line }}
+        {% endfor %}
+    - name: updates-planned.txt
+      content: |-
+        TOTAL={{ steamroller_update_lines | length }}
+        KERNEL={{ steamroller_kernel_updates | length }}
+        SYSTEMD={{ steamroller_systemd_updates | length }}
+        GLIBC={{ steamroller_glibc_updates | length }}
+        PLANNED_KERNEL={{ steamroller_planned_kernel | default('') }}
+        DNF_RC={{ steamroller_updates.rc }}
+        {{ steamroller_updates.stdout | default('') }}
+        {{ steamroller_updates.stderr | default('') }}
+    - name: filesystem.txt
+      content: |-
+        ABSOLUTE FREE SPACE
+        /: {{ steamroller_root_free_mb }} MiB free / {{ steamroller_root_total_mb }} MiB total; minimum {{ steamroller_root_min_free_mb }} MiB; status {{ 'PASS' if steamroller_root_free_mb | int >= steamroller_root_min_free_mb | int else 'FAIL' }}
+        /boot: {{ steamroller_boot_free_mb }} MiB free / {{ steamroller_boot_total_mb }} MiB total; minimum {{ steamroller_boot_min_free_mb }} MiB; backing mount {{ steamroller_boot_mount.mount }}; status {{ 'PASS' if steamroller_boot_free_mb | int >= steamroller_boot_min_free_mb | int else 'FAIL' }}
+
+        BLOCK USAGE
+        {{ steamroller_df.stdout | default('') }}
+        INODE USAGE
+        {{ steamroller_df_inodes.stdout | default('') }}
+    - name: mounts.txt
+      content: |-
+        REQUIRED FROM FSTAB: {{ steamroller_required_mounts | join(',') }}
+        MISSING: {{ steamroller_missing_required_mounts | join(',') }}
+        READ_ONLY: {{ steamroller_required_readonly_mounts | join(',') }}
+
+        FSTAB
+        {{ steamroller_fstab_mounts.stdout | default('') }}
+
+        ACTIVE MOUNTS
+        {{ steamroller_findmnt.stdout | default('') }}
+    - name: network.txt
+      content: |-
+        ADDRESSES
+        {{ steamroller_ip_address.stdout | default('') }}
+        ROUTES
+        {{ steamroller_ip_route.stdout | default('') }}
+        NETWORKMANAGER DEVICES
+        {{ steamroller_nmcli_devices.stdout | default('') }}
+    - name: services-running.txt
+      content: "{{ steamroller_running_services.stdout | default('') }}"
+    - name: services-failed.txt
+      content: "{{ steamroller_failed_services.stdout | default('') }}"
+    - name: services-enabled.txt
+      content: "{{ steamroller_enabled_services.stdout | default('') }}"
+    - name: checks.json
+      content: "{{ steamroller_checks | to_nice_json }}"
+  loop_control:
+    label: "{{ item.name }}"
+  delegate_to: localhost
+  become: false
+
+- name: Persist JSON summary
+  ansible.builtin.copy:
+    dest: "{{ steamroller_report_root }}/{{ steamroller_server_name }}/{{ steamroller_run_id }}/summary.json"
+    mode: "0640"
+    content: "{{ steamroller_summary | to_nice_json }}\n"
+  delegate_to: localhost
+  become: false
+
+- name: Fail host after persisting blocking findings
+  ansible.builtin.fail:
+    msg: "Precheck failed: {{ steamroller_failures | join('; ') }}"
+  when: steamroller_precheck_status == 'FAIL'

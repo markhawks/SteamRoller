@@ -1,0 +1,138 @@
+STEAMROLLER READ-ONLY PRECHECK
+RUN_ID={{ steamroller_run_id }}
+HOST={{ inventory_hostname }}
+SERVER_NAME={{ steamroller_server_name }}
+FQDN={{ ansible_fqdn }}
+ENVIRONMENT={{ steamroller_environment | default('unspecified') }}
+TIMESTAMP_UTC={{ ansible_date_time.iso8601 }}
+STATUS={{ steamroller_precheck_status }}
+DURATION_SECONDS={{ steamroller_precheck_finished_epoch | int - steamroller_precheck_started_epoch | int }}
+
+CHECK RESULTS
+-------------
+{% for check in steamroller_checks %}{{ '%-30s' | format(check.name) }} {{ '%-8s' | format(check.status) }} {{ check.duration }}
+{% endfor %}
+
+OS
+--
+{{ steamroller_redhat_release.stdout | default('unavailable') }}
+{{ steamroller_release_rpm.stdout | default('unavailable') }}
+
+KERNEL
+------
+Running: {{ steamroller_running_kernel.stdout | default('unavailable') }}
+Newest installed: {{ steamroller_newest_installed_kernel | default('unavailable') }}
+Planned after update: {{ steamroller_planned_kernel if steamroller_planned_kernel | length > 0 else 'none' }}
+Installed:
+{{ steamroller_installed_kernels.stdout | default('unavailable') }}
+
+UPTIME
+------
+Boot/uptime since: {{ steamroller_uptime_since.stdout | default('unavailable') }}
+Days: {{ ansible_uptime_seconds | int // 86400 }}
+Severity: {{ steamroller_uptime_severity }}
+
+SUBSCRIPTION IDENTITY
+---------------------
+{{ steamroller_subscription_identity.stdout | default('') }}
+{{ steamroller_subscription_identity.stderr | default('') }}
+
+SUBSCRIPTION STATUS
+-------------------
+{{ steamroller_subscription_status.stdout | default('') }}
+{{ steamroller_subscription_status.stderr | default('') }}
+
+REPOSITORIES
+------------
+{{ steamroller_repositories.stdout | default('') }}
+{{ steamroller_repositories.stderr | default('') }}
+
+REPOSITORY CONFIGURATION FILES
+------------------------------
+Policy: {{ steamroller_custom_repo_policy }}
+Allowed: {{ steamroller_allowed_repo_files | join(', ') }}
+Configured: {{ steamroller_repo_files | join(', ') }}
+Custom/manual review: {{ steamroller_custom_repo_files | join(', ') if steamroller_custom_repo_files | length > 0 else 'none' }}
+Enabled files: {{ steamroller_enabled_repo_files | join(', ') }}
+Enabled custom files: {{ steamroller_enabled_custom_repo_files | join(', ') if steamroller_enabled_custom_repo_files | length > 0 else 'none' }}
+
+DNF CHECK
+---------
+rc={{ steamroller_dnf_check.rc }}
+{{ steamroller_dnf_check.stdout | default('') }}
+{{ steamroller_dnf_check.stderr | default('') }}
+
+AVAILABLE UPDATES
+-----------------
+rc={{ steamroller_updates.rc }}
+Total packages: {{ steamroller_update_lines | length }}
+Kernel packages: {{ steamroller_kernel_updates | length }}
+Planned kernel: {{ steamroller_planned_kernel if steamroller_planned_kernel | length > 0 else 'none' }}
+systemd packages: {{ steamroller_systemd_updates | length }}
+glibc packages: {{ steamroller_glibc_updates | length }}
+{{ steamroller_updates.stdout | default('') }}
+{{ steamroller_updates.stderr | default('') }}
+
+FILESYSTEMS
+-----------
+Root free: {{ steamroller_root_free_mb }} MiB / {{ steamroller_root_total_mb }} MiB (minimum {{ steamroller_root_min_free_mb }} MiB) {{ 'PASS' if steamroller_root_free_mb | int >= steamroller_root_min_free_mb | int else 'FAIL' }}
+/boot free: {{ steamroller_boot_free_mb }} MiB / {{ steamroller_boot_total_mb }} MiB (minimum {{ steamroller_boot_min_free_mb }} MiB, backing mount {{ steamroller_boot_mount.mount }}) {{ 'PASS' if steamroller_boot_free_mb | int >= steamroller_boot_min_free_mb | int else 'FAIL' }}
+
+{{ steamroller_df.stdout | default('') }}
+
+INODES
+------
+Warning threshold: {{ steamroller_inode_warning_percent }}%
+Failure threshold: {{ steamroller_inode_failure_percent }}%
+Warning mounts: {{ steamroller_inode_warning_mounts | join(', ') if steamroller_inode_warning_mounts | length > 0 else 'none' }}
+Failed mounts: {{ steamroller_inode_failure_mounts | join(', ') if steamroller_inode_failure_mounts | length > 0 else 'none' }}
+{{ steamroller_df_inodes.stdout | default('') }}
+
+MOUNTS
+------
+Required from fstab: {{ steamroller_required_mounts | join(', ') }}
+Missing: {{ steamroller_missing_required_mounts | join(', ') if steamroller_missing_required_mounts | length > 0 else 'none' }}
+Read-only: {{ steamroller_required_readonly_mounts | join(', ') if steamroller_required_readonly_mounts | length > 0 else 'none' }}
+{{ steamroller_findmnt.stdout | default('') }}
+
+NETWORK ADDRESSES
+-----------------
+{{ steamroller_ip_address.stdout | default('') }}
+
+NETWORK ROUTES
+--------------
+{{ steamroller_ip_route.stdout | default('') }}
+
+NETWORKMANAGER DEVICES
+----------------------
+{{ steamroller_nmcli_devices.stdout | default('') }}
+
+FAILED SERVICES (PRE-EXISTING)
+------------------------------
+{{ steamroller_failed_services.stdout | default('none') }}
+
+RUNNING SERVICES
+----------------
+{{ steamroller_running_services.stdout | default('') }}
+
+ENABLED SERVICES
+----------------
+{{ steamroller_enabled_services.stdout | default('') }}
+
+PRE-EXISTING REBOOT REQUIREMENT
+-------------------------------
+rc={{ steamroller_reboot_required.rc }}
+{{ steamroller_reboot_required.stdout | default('') }}
+{{ steamroller_reboot_required.stderr | default('') }}
+
+FAILURES
+--------
+{% if steamroller_failures | length == 0 %}none
+{% else %}{% for finding in steamroller_failures %}- {{ finding }}
+{% endfor %}{% endif %}
+
+WARNINGS
+--------
+{% if steamroller_warnings | length == 0 %}none
+{% else %}{% for finding in steamroller_warnings %}- {{ finding }}
+{% endfor %}{% endif %}

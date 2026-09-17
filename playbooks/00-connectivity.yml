@@ -1,0 +1,11 @@
+---
+- name: SteamRoller connectivity validation
+  hosts: all
+  gather_facts: false
+  become: false
+  pre_tasks:
+    - name: Create immutable SteamRoller run ID
+      ansible.builtin.set_fact:
+        steamroller_run_id: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+  roles:
+    - connectivity

@@ -1,0 +1,110 @@
+---
+- name: Select safe server directory name
+  ansible.builtin.set_fact:
+    steamroller_server_name: "{{ ansible_fqdn | regex_replace('[^A-Za-z0-9._-]', '_') }}"
+    steamroller_repo_quarantine_dir: "/etc/yum.repos.d/SteamRoller-RepoOff/{{ steamroller_run_id }}"
+    steamroller_local_run_dir: "{{ steamroller_report_root }}/{{ ansible_fqdn | regex_replace('[^A-Za-z0-9._-]', '_') }}/{{ steamroller_run_id }}"
+
+- name: Discover configured repository files
+  ansible.builtin.find:
+    paths: /etc/yum.repos.d
+    patterns: "*.repo"
+    excludes: "{{ steamroller_allowed_repo_files }}"
+    file_type: file
+    recurse: false
+  register: steamroller_custom_repo_scan
+
+- name: Create protected local backup directory
+  ansible.builtin.file:
+    path: "{{ steamroller_local_run_dir }}/repo-backup"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+- name: Back up custom repository files on control node
+  ansible.builtin.fetch:
+    src: "{{ item.path }}"
+    dest: "{{ steamroller_local_run_dir }}/repo-backup/{{ item.path | basename }}"
+    flat: true
+    validate_checksum: true
+  loop: "{{ steamroller_custom_repo_scan.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  no_log: true
+
+- name: Protect local repository backups
+  ansible.builtin.file:
+    path: "{{ steamroller_local_run_dir }}/repo-backup/{{ item.path | basename }}"
+    mode: "0600"
+  loop: "{{ steamroller_custom_repo_scan.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  delegate_to: localhost
+  become: false
+  no_log: true
+
+- name: Create repository quarantine directory on target
+  ansible.builtin.file:
+    path: "{{ steamroller_repo_quarantine_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: steamroller_custom_repo_scan.matched | int > 0
+
+- name: Move custom repository files into quarantine
+  ansible.builtin.command:
+    argv:
+      - mv
+      - --
+      - "{{ item.path }}"
+      - "{{ steamroller_repo_quarantine_dir }}/{{ item.path | basename }}"
+  loop: "{{ steamroller_custom_repo_scan.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  register: steamroller_repo_moves
+
+- name: Build repository quarantine result
+  ansible.builtin.set_fact:
+    steamroller_quarantined_repo_files: >-
+      {{ steamroller_custom_repo_scan.files | map(attribute='path') |
+         map('basename') | sort | list }}
+    steamroller_summary:
+      run_id: "{{ steamroller_run_id }}"
+      host: "{{ inventory_hostname }}"
+      fqdn: "{{ ansible_fqdn }}"
+      environment: "{{ steamroller_environment | default('unspecified') }}"
+      timestamp_utc: "{{ ansible_date_time.iso8601 }}"
+      status: PASS
+      operation: repo_quarantine
+      quarantine_directory: "{{ steamroller_repo_quarantine_dir }}"
+      quarantined_files: >-
+        {{ steamroller_custom_repo_scan.files | map(attribute='path') |
+           map('basename') | sort | list }}
+      warnings: []
+      failures: []
+
+- name: Persist quarantine manifest
+  ansible.builtin.copy:
+    dest: "{{ steamroller_local_run_dir }}/repo-quarantine.txt"
+    mode: "0600"
+    content: |
+      STEAMROLLER REPOSITORY QUARANTINE
+      RUN_ID={{ steamroller_run_id }}
+      HOST={{ inventory_hostname }}
+      SERVER_NAME={{ steamroller_server_name }}
+      TARGET_DIRECTORY={{ steamroller_repo_quarantine_dir }}
+      FILE_COUNT={{ steamroller_quarantined_repo_files | length }}
+      FILES={{ steamroller_quarantined_repo_files | join(',') }}
+      LOCAL_BACKUP={{ steamroller_local_run_dir }}/repo-backup
+      RESULT=PASS
+  delegate_to: localhost
+  become: false
+
+- name: Persist quarantine JSON summary
+  ansible.builtin.copy:
+    dest: "{{ steamroller_local_run_dir }}/summary.json"
+    mode: "0600"
+    content: "{{ steamroller_summary | to_nice_json }}\n"
+  delegate_to: localhost
+  become: false

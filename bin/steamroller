@@ -1,0 +1,173 @@
+#!/usr/bin/bash
+set -o errexit
+set -o nounset
+set -o pipefail
+
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SOURCE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+if [[ -d "${SOURCE_ROOT}/playbooks" && -d "${SOURCE_ROOT}/inventories" ]]; then
+    readonly DEFAULT_APP_ROOT="${SOURCE_ROOT}"
+    readonly DEFAULT_CONFIG_ROOT="${SOURCE_ROOT}"
+    readonly DEFAULT_SETTINGS_FILE="${SOURCE_ROOT}/config/steamroller.yml"
+    readonly DEFAULT_REPORT_ROOT="${SOURCE_ROOT}/reports"
+    readonly DEFAULT_ANSIBLE_CONFIG="${SOURCE_ROOT}/ansible.cfg"
+else
+    readonly DEFAULT_APP_ROOT="/opt/steamroller"
+    readonly DEFAULT_CONFIG_ROOT="/etc/steamroller"
+    readonly DEFAULT_SETTINGS_FILE="/etc/steamroller/steamroller.yml"
+    readonly DEFAULT_REPORT_ROOT="/var/lib/steamroller/reports"
+    readonly DEFAULT_ANSIBLE_CONFIG="/etc/steamroller/ansible.cfg"
+fi
+
+readonly APP_ROOT="${STEAMROLLER_ROOT:-${DEFAULT_APP_ROOT}}"
+readonly CONFIG_ROOT="${STEAMROLLER_CONFIG_ROOT:-${DEFAULT_CONFIG_ROOT}}"
+readonly SETTINGS_FILE="${STEAMROLLER_SETTINGS_FILE:-${DEFAULT_SETTINGS_FILE}}"
+readonly REPORT_ROOT="${STEAMROLLER_REPORT_ROOT:-${DEFAULT_REPORT_ROOT}}"
+readonly STEAMROLLER_ANSIBLE_CONFIG="${ANSIBLE_CONFIG:-${DEFAULT_ANSIBLE_CONFIG}}"
+
+usage() {
+    printf '%s\n' \
+        'Usage: steamroller precheck ENVIRONMENT [--quiet] [ansible-playbook options]' \
+        '       steamroller connectivity ENVIRONMENT [--quiet] [ansible-playbook options]' \
+        '       steamroller repo-off ENVIRONMENT [--quiet] [ansible-playbook options]' \
+        '       steamroller config [ENVIRONMENT]' \
+        '       steamroller doctor ENVIRONMENT' \
+        '       steamroller status' \
+        '       steamroller version'
+}
+
+[[ $# -ge 1 ]] || { usage >&2; exit 2; }
+action="$1"
+shift
+
+if [[ "$action" == "version" ]]; then
+    tr -d '\n' < "${APP_ROOT}/VERSION"
+    printf '\n'
+    exit 0
+fi
+
+if [[ "$action" == "status" ]]; then
+    if [[ ! -d "$REPORT_ROOT" ]]; then
+        printf 'No reports found in %s\n' "$REPORT_ROOT"
+        exit 0
+    fi
+    find "$REPORT_ROOT" -mindepth 2 -maxdepth 2 -type d -printf '%P\n' | sort -r
+    exit 0
+fi
+
+if [[ "$action" == "config" && $# -eq 0 ]]; then
+    set -- dev
+fi
+
+[[ "$action" == "precheck" || "$action" == "connectivity" || "$action" == "repo-off" || "$action" == "config" || "$action" == "doctor" ]] || {
+    usage >&2
+    exit 2
+}
+[[ $# -ge 1 ]] || { usage >&2; exit 2; }
+
+environment="$1"
+shift
+[[ "$environment" =~ ^[a-zA-Z0-9_-]+$ ]] || {
+    printf 'Invalid environment name: %s\n' "$environment" >&2
+    exit 2
+}
+
+inventory="${CONFIG_ROOT}/inventories/${environment}/hosts.yml"
+[[ -r "$inventory" ]] || {
+    printf 'Inventory is not readable: %s\n' "$inventory" >&2
+    exit 2
+}
+
+python3 "${APP_ROOT}/scripts/validate_config.py" \
+    --inventory "$inventory" \
+    --settings "$SETTINGS_FILE" \
+    --report-root "$REPORT_ROOT"
+
+if [[ "$action" == "config" ]]; then
+    [[ $# -eq 0 ]] || { usage >&2; exit 2; }
+    export ANSIBLE_CONFIG="$STEAMROLLER_ANSIBLE_CONFIG"
+    exec python3 "${APP_ROOT}/scripts/show_config.py" \
+        --inventory "$inventory" \
+        --settings "$SETTINGS_FILE" \
+        --environment "$environment" \
+        --report-root "$REPORT_ROOT"
+fi
+
+if [[ "$action" == "doctor" ]]; then
+    errors=0
+    for executable in ansible ansible-playbook ssh; do
+        if command -v "$executable" >/dev/null 2>&1; then
+            printf 'PASS executable: %s\n' "$executable"
+        else
+            printf 'FAIL executable not found: %s\n' "$executable" >&2
+            errors=$((errors + 1))
+        fi
+    done
+    for readable_file in "$inventory" "$SETTINGS_FILE" "$STEAMROLLER_ANSIBLE_CONFIG"; do
+        if [[ -r "$readable_file" ]]; then
+            printf 'PASS readable: %s\n' "$readable_file"
+        else
+            printf 'FAIL not readable: %s\n' "$readable_file" >&2
+            errors=$((errors + 1))
+        fi
+    done
+    [[ $errors -eq 0 ]] || exit 1
+    ANSIBLE_CONFIG="$STEAMROLLER_ANSIBLE_CONFIG" \
+        ansible-inventory -i "$inventory" --list >/dev/null
+    printf 'PASS inventory syntax: %s\n' "$inventory"
+    exit 0
+fi
+
+case "$action" in
+    connectivity) playbook="00-connectivity.yml" ;;
+    precheck) playbook="10-precheck.yml" ;;
+    repo-off) playbook="15-repo-off.yml" ;;
+esac
+
+quiet=false
+ansible_options=()
+for option in "$@"; do
+    if [[ "$option" == "--quiet" ]]; then
+        quiet=true
+    else
+        ansible_options+=("$option")
+    fi
+done
+
+run_id="$(date -u +%Y%m%dT%H%M%SZ)"
+output_log="$(mktemp "/tmp/steamroller-${action}.XXXXXX")"
+trap 'rm -f "$output_log"' EXIT
+
+export ANSIBLE_CONFIG="$STEAMROLLER_ANSIBLE_CONFIG"
+ansible_command=(ansible-playbook
+    -i "$inventory" \
+    "${APP_ROOT}/playbooks/${playbook}" \
+    -e "@${SETTINGS_FILE}" \
+    -e "steamroller_report_root=${REPORT_ROOT}" \
+    -e "steamroller_run_id=${run_id}" \
+    "${ansible_options[@]}")
+
+set +o errexit
+if [[ "$quiet" == true ]]; then
+    "${ansible_command[@]}" >"$output_log" 2>&1
+    ansible_rc=$?
+else
+    "${ansible_command[@]}" 2>&1 | tee "$output_log"
+    ansible_rc=${PIPESTATUS[0]}
+fi
+set -o errexit
+
+render_rc=0
+python3 "${APP_ROOT}/scripts/render_summary.py" \
+    --report-root "$REPORT_ROOT" \
+    --run-id "$run_id" \
+    --inventory "$inventory" \
+    --environment "$environment" || render_rc=$?
+
+if [[ $ansible_rc -ne 0 ]]; then
+    printf '\nANSIBLE EXECUTION ERRORS\n' >&2
+    grep -E 'fatal:|UNREACHABLE!|FAILED!|unreachable=[1-9]|failed=[1-9]' "$output_log" >&2 || true
+    exit "$ansible_rc"
+fi
+exit "$render_rc"
