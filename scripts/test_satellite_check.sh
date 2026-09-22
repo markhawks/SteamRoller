@@ -25,12 +25,16 @@ repositories="$(subscription-manager repos --list-enabled 2>&1)" || {
 consumer_name="$(printf '%s\n' "$identity" | awk -F':[[:space:]]*' '/^name:/{print $2; exit}')"
 environment_name="$(printf '%s\n' "$identity" | awk -F':[[:space:]]*' '/^environment name:/{print $2; exit}')"
 overall_status="$(printf '%s\n' "$status" | awk -F':[[:space:]]*' '/^Overall Status:/{print $2; exit}')"
+if [[ "$status" == *"Simple Content Access"* ]]; then
+    content_access_mode="Simple Content Access"
+else
+    content_access_mode="Entitlement-based"
+fi
 satellite_hostname="$(subscription-manager config --list | awk -F= '/^[[:space:]]*hostname[[:space:]]*=/{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2; exit}')"
 
 result=0
 [[ -n "$consumer_name" ]] || result=1
 [[ -n "$environment_name" ]] || result=1
-[[ "$overall_status" == "Registered" ]] || result=1
 
 if [[ -n "$expected_name" && "$consumer_name" != "$expected_name" ]]; then
     result=1
@@ -43,7 +47,9 @@ printf '%s\n' "SATELLITE REGISTRATION CHECK" "============================"
 printf '%-24s %s\n' "Satellite server:" "${satellite_hostname:-unknown}"
 printf '%-24s %s\n' "Name:" "${consumer_name:-missing}"
 printf '%-24s %s\n' "Environment:" "${environment_name:-missing}"
-printf '%-24s %s\n' "Registration status:" "${overall_status:-unknown}"
+printf '%-24s %s\n' "Registration status:" "$([[ -n "$consumer_name" ]] && printf Registered || printf 'Not registered')"
+printf '%-24s %s\n' "Subscription status:" "${overall_status:-unknown}"
+printf '%-24s %s\n' "Content access mode:" "$content_access_mode"
 printf '\n%-8s %-70s %s\n' "RESULT" "REPOSITORY ID" "ENABLED"
 printf '%-8s %-70s %s\n' "--------" "----------------------------------------------------------------------" "-------"
 

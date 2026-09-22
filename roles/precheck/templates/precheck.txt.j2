@@ -56,6 +56,8 @@ Environment name: {{ steamroller_environment_name }}
 Lifecycle environment: {{ steamroller_lifecycle_environment }}
 Content view: {{ steamroller_content_view }}
 Registration status: {{ steamroller_registration_status }}
+Subscription overall status: {{ steamroller_subscription_overall_status }}
+Content access mode: {{ steamroller_content_access_mode }}
 Enabled repositories:
 {% for repo_id in steamroller_enabled_repo_ids %}- {{ repo_id }}
 {% endfor %}

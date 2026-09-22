@@ -293,6 +293,8 @@ def main() -> int:
             satellite = row.get("satellite", {}) or {}
             registration_status = str(satellite.get("registration_status", "unknown"))
             registration_result = "PASS" if registration_status == "Registered" else "FAIL"
+            overall_status = str(satellite.get("subscription_overall_status", "unknown"))
+            content_access_mode = str(satellite.get("content_access_mode", "unknown"))
             repositories = satellite.get("enabled_repositories", []) or []
             repositories_enabled = bool(satellite.get("all_repositories_enabled", False))
             consumer_matches = bool(satellite.get("consumer_name_matches", False))
@@ -319,6 +321,17 @@ def main() -> int:
                 f"  Registration status: {registration_status} "
                 f"[{palette.status(registration_result)}]"
             )
+            if overall_status == "Disabled" and content_access_mode == "Simple Content Access":
+                overall_display = "Disabled (expected with Simple Content Access)"
+                overall_result = "PASS"
+            else:
+                overall_display = overall_status
+                overall_result = "PASS" if registration_result == "PASS" else "FAIL"
+            print(
+                f"  Subscription overall status: {overall_display} "
+                f"[{palette.status(overall_result)}]"
+            )
+            print(f"  Content access mode: {content_access_mode}")
             print("  Enabled repositories:")
             if repositories:
                 repository_result = "PASS" if repositories_enabled else "FAIL"

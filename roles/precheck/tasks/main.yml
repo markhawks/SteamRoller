@@ -226,9 +226,13 @@
     steamroller_environment_name: >-
       {{ steamroller_subscription_identity.stdout_lines | default([]) |
          select('match', '^environment name:') | map('regex_replace', '^environment name:[ ]*', '') | first | default('') }}
-    steamroller_registration_status: >-
+    steamroller_subscription_overall_status: >-
       {{ steamroller_subscription_status.stdout_lines | default([]) |
          select('match', '^Overall Status:') | map('regex_replace', '^Overall Status:[ ]*', '') | first | default('') }}
+    steamroller_content_access_mode: >-
+      {{ 'Simple Content Access'
+         if 'Simple Content Access' in (steamroller_subscription_status.stdout | default(''))
+         else 'Entitlement-based' }}
     steamroller_satellite_server: >-
       {{ steamroller_subscription_config.stdout_lines | default([]) |
          select('match', '^[ ]*hostname[ ]*=') |
@@ -239,6 +243,17 @@
     steamroller_repo_enabled_values: >-
       {{ steamroller_subscription_repositories.stdout_lines | default([]) |
          select('match', '^Enabled:') | map('regex_replace', '^Enabled:[ ]*', '') | list }}
+
+- name: Determine effective registration status
+  ansible.builtin.set_fact:
+    steamroller_registration_valid: >-
+      {{ steamroller_subscription_identity.rc == 0 and
+         steamroller_consumer_name | length > 0 }}
+    steamroller_registration_status: >-
+      {{ 'Registered'
+         if (steamroller_subscription_identity.rc == 0 and
+             steamroller_consumer_name | length > 0)
+         else 'Not registered' }}
 
 - name: Parse Satellite lifecycle environment and content view
   ansible.builtin.set_fact:
@@ -390,11 +405,9 @@
       - name: satellite_registration
         status: >-
           {{ 'SKIPPED' if steamroller_effective_registration_mode != 'satellite'
-             else ('PASS' if (steamroller_subscription_identity.rc == 0 and
-                              steamroller_subscription_status.rc == 0 and
+             else ('PASS' if (steamroller_registration_valid and
                               steamroller_subscription_config.rc == 0 and
                               steamroller_subscription_repositories.rc == 0 and
-                              steamroller_registration_status == 'Registered' and
                               steamroller_environment_name | length > 0 and
                               steamroller_enabled_repo_ids | length > 0 and
                               steamroller_non_enabled_repo_values | length == 0)
@@ -507,10 +520,8 @@
   ansible.builtin.set_fact:
     steamroller_failures: "{{ steamroller_failures + [item.message] }}"
   loop:
-    - failed: "{{ steamroller_subscription_identity.rc != 0 }}"
+    - failed: "{{ not steamroller_registration_valid }}"
       message: Satellite consumer identity is unavailable
-    - failed: "{{ steamroller_registration_status != 'Registered' }}"
-      message: Satellite registration status is not Registered
     - failed: "{{ steamroller_satellite_server | length == 0 }}"
       message: Satellite server hostname is unavailable
     - failed: "{{ steamroller_environment_name | length == 0 }}"
@@ -723,6 +734,8 @@
         lifecycle_environment: "{{ steamroller_lifecycle_environment }}"
         content_view: "{{ steamroller_content_view }}"
         registration_status: "{{ steamroller_registration_status }}"
+        subscription_overall_status: "{{ steamroller_subscription_overall_status }}"
+        content_access_mode: "{{ steamroller_content_access_mode }}"
         enabled_repositories: "{{ steamroller_enabled_repo_ids }}"
         all_repositories_enabled: "{{ steamroller_non_enabled_repo_values | length == 0 }}"
       os:
@@ -834,6 +847,8 @@
         Lifecycle environment: {{ steamroller_lifecycle_environment }}
         Content view: {{ steamroller_content_view }}
         Registration status: {{ steamroller_registration_status }}
+        Subscription overall status: {{ steamroller_subscription_overall_status }}
+        Content access mode: {{ steamroller_content_access_mode }}
         Enabled repositories:
         {% for repo_id in steamroller_enabled_repo_ids %}- {{ repo_id }}
         {% endfor %}
