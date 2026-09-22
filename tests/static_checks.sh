@@ -33,6 +33,8 @@ required_files=(
     setup/README.md
     completions/steamroller.bash
     ssh-keys/README.md
+    docs/HOWTO.md
+    docs/RELEASE_NOTES_0.2.0.md
     packaging/rpm/steamroller.spec
 )
 
@@ -42,6 +44,15 @@ for required_file in "${required_files[@]}"; do
         exit 1
     }
 done
+
+forbidden_identifiers='mena''rini|mcd''lnx|mcd''l|rh98''virt|server0''[1-9]|app0''[1-9]|alfresco-''dev|ipm-''dev'
+if grep -REin \
+    "$forbidden_identifiers" \
+    README.md PROJECT_STATUS.md STEAMROLLER_PROJECT_EN.md docs \
+    tests/test_inventory_manager.py tests/test_ssh_key_resolver.py; then
+    printf 'Documentation or tests contain forbidden customer or legacy host identifiers.\n' >&2
+    exit 1
+fi
 
 if grep -REn --include='*.yml' --include='*.yaml' \
     'ansible\.builtin\.(dnf|yum):|(^|[[:space:]])(dnf|yum)[[:space:]]+(update|upgrade)' \
@@ -67,6 +78,9 @@ grep -q -- '-q|--quiet' bin/steamroller
 grep -q -- 'reboot ENVIRONMENT --host HOST' bin/steamroller
 grep -q 'POSTGRESQL DETAILS' roles/precheck/templates/precheck.txt.j2
 grep -q 'postgresql.txt' roles/precheck/tasks/main.yml
+grep -qx '0.2.0' VERSION
+grep -q '^Version:[[:space:]]*0.2.0$' packaging/rpm/steamroller.spec
+grep -q 'Current version: \*\*0.2.0\*\*' README.md
 [[ -x setup/manual/install-source-path.sh ]]
 
 bash -n bin/steamroller
@@ -80,7 +94,7 @@ python3 -m py_compile scripts/list_reports.py
 python3 -m py_compile scripts/manage_inventory.py
 python3 -m py_compile scripts/resolve_ssh_key.py
 python3 -m py_compile scripts/inventory_hostnames.py
-python3 scripts/inventory_hostnames.py --inventory inventories/dev/hosts.yml --contains rh98virt
+python3 scripts/inventory_hostnames.py --inventory inventories/dev/hosts.yml | grep -q .
 python3 -m unittest tests/test_inventory_manager.py
 python3 -m unittest tests/test_ssh_key_resolver.py
 

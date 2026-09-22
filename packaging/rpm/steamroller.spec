@@ -1,5 +1,5 @@
 Name:           steamroller
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Safe RHEL 9 remote patching precheck automation
 License:        AGPL-3.0-or-later
@@ -69,5 +69,9 @@ ln -s /opt/steamroller/bin/steamroller %{buildroot}%{_bindir}/steamroller
 %dir %{_localstatedir}/log/steamroller
 
 %changelog
+* Tue Sep 22 2026 SteamRoller Team <root@localhost> - 0.2.0-1
+- Add inventory management, Satellite and PostgreSQL checks, repository
+  quarantine integration, SSH profiles, Bash completion, and controlled reboot
+
 * Thu Sep 17 2026 SteamRoller Team <root@localhost> - 0.1.0-1
 - Initial Phase 1 package structure

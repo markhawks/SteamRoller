@@ -306,7 +306,7 @@ A configured critical service running PRE but down POST =
 Produce a concise automatic comparison:
 
 ``` text
-HOST: server01
+HOST: quorin-node-a01.ops.example
 OS:      RHEL 9.5 -> RHEL 9.8       PASS
 KERNEL:  old -> new                  PASS
 MOUNTS:  no missing mounts           PASS

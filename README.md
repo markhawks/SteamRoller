@@ -6,199 +6,175 @@
        width="900">
 </p>
 
-SteamRoller is a conservative Ansible workflow for validating and, in later
-phases, patching remote RHEL 9 systems. The control node may run RHEL 9 or
-RHEL 10.
+SteamRoller is an operator-oriented Ansible tool for assessing remote Red Hat
+Enterprise Linux 9 systems from a RHEL 9 or RHEL 10 control node. It provides
+multi-host prechecks, persistent evidence, repository safety controls, and a
+confirmed single-host reboot workflow.
 
-The current implementation is **Phase 1 only**:
+Current version: **0.2.0**
 
-- connectivity and privilege validation;
-- read-only RHEL 9 prechecks;
-- direct Red Hat CDN and Red Hat Satellite registration and repository checks;
-- PostgreSQL RPM inventory, Red Hat versus community PGDG provenance, and
-  available PostgreSQL update versions;
-- persistent per-host text and JSON evidence.
+## Highlights
 
-It does not update packages, modify subscriptions, or perform cluster/HA
-orchestration.
+- multi-host inventories with built-in create, add, delete, and list commands;
+- SSH connectivity and root-execution validation;
+- dedicated SSH key profiles with automatic private-key discovery;
+- RHEL, kernel, uptime, DNF/RPM, disk, inode, fstab, network, and systemd checks;
+- Red Hat CDN and Satellite auto-detection, including Simple Content Access;
+- Satellite Organization, Lifecycle Environment, Content View, and repository evidence;
+- custom `.repo` detection and explicit repository quarantine with local backup;
+- PostgreSQL package, provenance, and available-version reporting;
+- controlled reboot of exactly one inventory host with PRE/POST validation;
+- readable fleet summaries plus per-host text and JSON reports;
+- Bash completion for commands, inventories, hosts, options, and SSH profiles.
 
-An explicitly confirmed, single-host controlled reboot is available. It never
-selects an entire inventory and does not provide cluster/HA orchestration.
+SteamRoller does **not** install package updates, change Satellite assignments,
+or coordinate clusters and HA applications.
 
-Repository configuration files are inspected by filename only. Files other
-than those listed in `steamroller_allowed_repo_files` fail precheck by default.
-Precheck never edits repository configuration. An operator may explicitly run
-`steamroller repo-off ENVIRONMENT` to back up custom files into the protected
-local report directory and then move them on the target beneath
-`/etc/yum.repos.d/SteamRoller-RepoOff/RUN_ID/`.
-Its final terminal summary lists the scanned directory, files left in place,
-custom files found, local backup, remote quarantine, and files actually moved.
+## Requirements
 
-Repository quarantine can also be explicitly requested immediately before a
-precheck:
+Control node:
 
-```bash
-steamroller precheck ENVIRONMENT --repo-off
-```
+- RHEL 9 or RHEL 10;
+- Ansible Core;
+- Python 3 and PyYAML;
+- OpenSSH client and `ping`;
+- Git for source-based installation.
 
-This is a mutating opt-in operation: custom `.repo` files are backed up and
-moved first, then the complete precheck runs against the resulting repository
-configuration. Without `--repo-off`, precheck remains read-only.
+Managed hosts:
 
-## Development usage
+- RHEL 9.x;
+- SSH access;
+- Python available to Ansible;
+- root access, currently used directly by the initial release.
 
-Create an inventory by resolving and pinging every host before writing it:
-
-```bash
-./bin/steamroller inventory create -i AlfrescoDev \
-  -h alfresco01.example.net -h alfresco02.example.net
-```
-
-SSH defaults to port `22` and user `root`; override them with `-p` and `-u`:
+## Quick start from source
 
 ```bash
-./bin/steamroller inventory add -i AlfrescoDev \
-  -h alfresco03.example.net -p 2222 -u operator
-./bin/steamroller inventory del -i AlfrescoDev \
-  -h alfresco02.example.net -h alfresco03.example.net
-./bin/steamroller inventory list
-./bin/steamroller inventory list AlfrescoDev
-```
+git clone https://github.com/markhawks/SteamRoller.git
+cd SteamRoller
 
-For `create` and `add`, all hosts must answer ping before the inventory is
-written; a failure leaves the existing data unchanged. Then run:
-
-```bash
-./bin/steamroller doctor dev
-./bin/steamroller connectivity dev
-./bin/steamroller precheck dev
-./bin/steamroller status
-```
-
-`steamroller status` displays one row per execution with the local execution
-time, immutable run ID, and operation type. Connectivity runs and full precheck
-reports are identified explicitly even when the remote hostname uses different
-capitalization between Ansible discovery methods.
-
-Display the effective, non-sensitive defaults for an environment:
-
-```bash
-./bin/steamroller config dev
-```
-
-Reboot exactly one inventory host, with an interactive confirmation:
-
-```bash
-steamroller reboot AlfrescoDev --host server01.example.net -sk foreman
-```
-
-For non-interactive execution, authorization must be explicit:
-
-```bash
-steamroller reboot AlfrescoDev --host server01.example.net \
-  -sk foreman --confirm -q
-```
-
-SteamRoller blocks reboot while `dnf`, `yum`, or `rpm` is active, verifies
-mandatory fstab mounts before and after, waits for SSH, confirms that the boot
-ID changed, compares kernels and failed services, and writes persistent PRE/POST
-evidence. `--timeout SECONDS` changes the default 900-second reboot timeout.
-
-The wrapper automatically recognizes a source checkout. After RPM installation
-the same commands use `/opt/steamroller` and `/etc/steamroller`.
-
-Install the current source checkout in root's command `PATH` so that the
-`./bin/` prefix is no longer required:
-
-```bash
 ./setup/manual/install-source-path.sh
 source /root/.bashrc
+
 steamroller version
 ```
 
-The installer is safe to run again after moving or reinstalling the source
-checkout. It also enables Bash completion: type `steamroller` followed by
-`Tab` twice to display commands and context-sensitive options. See
-`setup/README.md` for removal and advanced options.
+The installer adds the current checkout to root's `PATH`, enables Bash
+completion, creates a timestamped `.bashrc` backup, and is safe to run again.
 
-Runtime reports and real customer inventories must never be committed. Clone
-the repository at each customer site, create the local inventory from the
-example, and keep customer-specific changes on a dedicated development branch.
-
-Normal mode shows Ansible task progress followed by a fleet summary. Quiet mode
-(`-q` or `--quiet`) suppresses task progress but always shows the same final
-summary:
+Create an inventory:
 
 ```bash
-steamroller precheck dev -q
+steamroller inventory create -i ORION-LAB \
+  -h velora-db-a01.ops.example \
+  -h velora-db-a02.ops.example
 ```
 
-Store private keys in ignored, named profiles beneath `ssh-keys/`. If exactly
-one private key exists, SteamRoller selects it automatically. With multiple
-profiles, use the short `-sk` selector; the private-key filename inside the
-selected directory is discovered automatically:
+Create an SSH key profile:
 
 ```bash
 mkdir -p ssh-keys/foreman
 cp /secure/path/id_rsa_foreman_proxy ssh-keys/foreman/
 chmod 700 ssh-keys ssh-keys/foreman
 chmod 600 ssh-keys/foreman/id_rsa_foreman_proxy
-
-steamroller connectivity dev -sk foreman
-steamroller precheck dev -q -sk foreman
 ```
 
-After `-sk` or `--ssh-key`, Bash completion lists the available profile
-directories. Direct private-key paths remain supported. The equivalent
-environment variable is `STEAMROLLER_SSH_KEY`; `STEAMROLLER_SSH_KEY_ROOT` can
-override the managed directory. Private-key contents are never committed.
-
-The standalone read-only Satellite discovery script remains available for
-quick diagnostics:
+Run connectivity and precheck:
 
 ```bash
-sudo ./scripts/test_satellite_check.sh
+steamroller connectivity ORION-LAB -q -sk foreman
+steamroller precheck ORION-LAB -q -sk foreman
 ```
 
-Optional expected name, environment, and repository IDs can be supplied as
-positional arguments.
+If only one managed private key exists, `-sk foreman` can be omitted.
 
-The default `steamroller_registration_mode: auto` detects Satellite from the
-RHSM server and environment returned by the managed host. A detected Satellite
-is always reported and validated, including installations that still contain
-the older `redhat_cdn` setting. Configure expected values in the optional environment file
-`inventories/ENVIRONMENT/steamroller.yml` (create it from the example).
-Precheck then validates the Satellite server, consumer name, Organization,
-Lifecycle Environment, Content View, and enabled repository IDs. The terminal
-report includes a dedicated `SATELLITE DETAILS` section after `HOST DETAILS`.
-If no expected consumer name is configured, each consumer is validated against
-that host's discovered FQDN, which supports inventories containing many hosts.
-The discovered name, expected name, validation mode, and result remain visible
-in `SATELLITE DETAILS` in both automatic and explicitly configured modes.
+## Safe mutating operations
 
-The summary contains one row for every inventory host. A host that is
-unreachable or does not produce a report is displayed as `FAIL`, followed by
-its error details. The command returns a non-zero exit status when any host
-fails.
+Normal precheck is read-only. Repository quarantine is performed only when the
+operator explicitly requests it:
 
-Reports are written beneath `reports/<server-name>/<run-id>/` by default. Override
-the location with `steamroller_report_root`.
+```bash
+steamroller repo-off ORION-LAB -q -sk foreman
 
-## Installed layout
+# Or quarantine first, then run precheck:
+steamroller precheck ORION-LAB --repo-off -q -sk foreman
+```
 
-The RPM installs application code in `/opt/steamroller`, configuration in
-`/etc/steamroller`, reports in `/var/lib/steamroller/reports`, and exposes the
-`steamroller` command through `/usr/bin`.
+This backs up custom `.repo` files locally before moving them beneath
+`/etc/yum.repos.d/SteamRoller-RepoOff/RUN_ID/` on the managed host.
+
+Reboot requires one exact inventory host and interactive confirmation unless
+`--confirm` is supplied:
+
+```bash
+steamroller reboot ORION-LAB \
+  --host velora-db-a01.ops.example \
+  -sk foreman
+```
+
+SteamRoller never interprets reboot as an entire-inventory operation.
+
+## Reports
+
+Source checkouts store reports beneath:
+
+```text
+reports/SERVER_NAME/RUN_ID/
+```
+
+Precheck evidence includes `precheck.txt`, `summary.json`, `checks.json`,
+filesystem, mount, kernel, network, repository, Satellite, systemd, update, and
+PostgreSQL details. Reboot runs preserve evidence before reboot and create a
+POST validation report after the host returns.
+
+List runs with:
+
+```bash
+steamroller status
+```
+
+## Configuration and security
+
+- global defaults: `config/steamroller.yml`;
+- inventories: `inventories/ENVIRONMENT/hosts.yml`;
+- optional environment settings: `inventories/ENVIRONMENT/steamroller.yml`;
+- managed SSH profiles: `ssh-keys/PROFILE/PRIVATE_KEY`;
+- real inventories, reports, backups, and private keys are excluded from Git;
+- SSH host-key checking remains enabled;
+- repository files are never moved without an explicit operator option.
+
+Display effective settings with:
+
+```bash
+steamroller config ENVIRONMENT
+```
+
+## Documentation
+
+- [Complete command HOWTO](docs/HOWTO.md)
+- [Project status](PROJECT_STATUS.md)
+- [Version 0.2.0 release notes](docs/RELEASE_NOTES_0.2.0.md)
+- [Manual setup utilities](setup/README.md)
+
+## Planned installed layout
+
+```text
+/opt/steamroller/                    application code
+/etc/steamroller/                    configuration
+/etc/steamroller/inventories/        inventories
+/etc/steamroller/ssh-keys/           managed SSH identities
+/var/lib/steamroller/reports/        persistent evidence
+/var/log/steamroller/                operational logs
+/usr/bin/steamroller                 operator entry point
+```
+
+RPM production and installation validation remain deferred until the
+source-based 0.2 series is accepted on real customer systems.
 
 ## License
 
 Copyright (C) 2026 markhawks and SteamRoller contributors.
 
-SteamRoller is free software: you can redistribute it and/or modify it under
-the terms of the GNU Affero General Public License as published by the Free
-Software Foundation, either version 3 of the License, or (at your option) any
-later version.
-
-SteamRoller is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the complete terms.
+SteamRoller is free software licensed under the GNU Affero General Public
+License, version 3 or any later version (`AGPL-3.0-or-later`). It is distributed
+without warranty. See [LICENSE](LICENSE) for the complete terms.

@@ -1,184 +1,118 @@
 # SteamRoller Project Status
 
 Last updated: 2026-09-22
-Current version: 0.1.0
-Status: active development
 
-License: GNU Affero General Public License v3.0 or later
+Current version: **0.2.0**
 
-## Current scope
+Status: active development and real-system validation
 
-SteamRoller v1 is primarily a read-only validation and evidence-collection
-tool for remote Red Hat Enterprise Linux 9.x systems, with separately requested
-repository-quarantine and single-host reboot operations. The Ansible control
-node may run RHEL 9 or RHEL 10.
+License: AGPL-3.0-or-later
 
-Package installation and system patching are not part of the first release.
-A separately confirmed reboot command supports one inventory host at a time
-and records focused PRE/POST reboot evidence.
+## Release scope
 
-The project supports hosts registered directly with Red Hat CDN and hosts
-registered with Red Hat Satellite. Satellite validation is read-only and does
-not modify Content Views, Lifecycle Environments, or repository assignments.
+SteamRoller 0.2.0 manages remote RHEL 9.x hosts from a RHEL 9 or RHEL 10
+control node. Its primary workflow is read-only assessment and evidence
+collection. Two changes to managed hosts require explicit operator action:
 
-Cluster and HA detection is temporarily disabled for the initial single-host
-laboratory.
+- quarantine of custom repository files;
+- reboot of one exact inventory host.
 
-## Implemented operator commands
+Package updates, automatic fleet reboot, and cluster/HA orchestration are not implemented.
 
-```bash
-./bin/steamroller doctor dev
-./bin/steamroller config dev
-./bin/steamroller connectivity dev
-./bin/steamroller connectivity dev --quiet
-./bin/steamroller precheck dev
-./bin/steamroller precheck dev --quiet
-./bin/steamroller reboot dev --host rh98virt
-./bin/steamroller status
+## Implemented commands
+
+```text
+steamroller version
+steamroller doctor ENVIRONMENT
+steamroller config [ENVIRONMENT]
+steamroller inventory create|add|del|list
+steamroller connectivity ENVIRONMENT
+steamroller precheck ENVIRONMENT
+steamroller repo-off ENVIRONMENT
+steamroller reboot ENVIRONMENT --host HOST
+steamroller status
 ```
 
-A dedicated private key can be selected at runtime with `--ssh-key PATH` or
-the `STEAMROLLER_SSH_KEY` environment variable. The key is validated locally
-and is never copied into reports or the repository.
-
-Normal mode displays Ansible task progress and the final fleet report. Quiet
-mode suppresses task progress but always displays the final report and any
-blocking findings.
-
-The reporting interface is designed for inventories containing approximately
-5 to 10 hosts. Every inventory host receives a row, including unreachable
-hosts and hosts that failed before producing a report.
+All operational commands support persistent reporting. Connectivity, precheck,
+repository quarantine, and reboot accept SSH key profiles and `-q`/`--quiet`.
 
 ## Implemented validation
 
-### Connectivity and identity
+### Inventory and access
 
-- SSH and Ansible Python connectivity;
-- configured remote user;
-- root command execution;
-- hostname, FQDN, environment, and run ID;
-- RHEL distribution and release identification;
-- RHEL 9.x-only managed-host policy.
+- atomic inventory creation and modification;
+- hostname ping and IPv4 discovery before inventory writes;
+- default SSH user `root` and port `22`, with overrides;
+- context-sensitive Bash completion;
+- named SSH key profiles and automatic private-key discovery;
+- SSH, Python, and root-execution checks.
 
-### Kernel and uptime
+### Platform and lifecycle
 
-- running kernel;
-- installed kernel packages;
-- newest installed kernel based on RPM installation time;
-- warning when the running kernel differs from the newest installed kernel;
-- next kernel expected from the available `kernel-core` update;
-- uptime severity:
-  - 0-89 days: `PASS`;
-  - 90-179 days: `WARNING`;
-  - 180-364 days: `HIGH WARNING`;
-  - 365 days or more: `CRITICAL WARNING`.
+- RHEL 9.x managed-host policy;
+- running, installed, newest installed, and planned kernels;
+- uptime severity at 90, 180, and 365 days;
+- update totals for kernel, systemd, and glibc;
+- pre-existing reboot requirement.
 
-### Red Hat registration and repositories
+### Subscription and Satellite
 
-- `subscription-manager identity` and status;
-- Satellite server, consumer name, Organization, Lifecycle Environment, and
-  Content View validation when Satellite mode is selected;
-- automatic consumer-name comparison with each host FQDN;
-- enabled repository collection;
-- validation that repositories returned by `list-enabled` have `Enabled=1`;
-- required repository ID validation;
-- DNF repository provenance without storing repository secrets;
-- discovery of `/etc/yum.repos.d/*.repo` files;
+- RHSM identity and registration validation;
+- automatic CDN versus Satellite detection;
+- Simple Content Access-aware status handling;
+- consumer/FQDN comparison;
+- Organization, Satellite server, Lifecycle Environment, and Content View;
+- enabled repository IDs and `Enabled=1` validation;
+- optional expected Satellite values per environment.
+
+### Repository safety
+
+- scan of `/etc/yum.repos.d/*.repo`;
 - `redhat.repo` allowed by default;
-- additional `.repo` files fail precheck by default;
-- explicit repository quarantine utility with a protected local backup.
+- additional files fail precheck by default;
+- explicit local backup and remote quarantine;
+- optional `precheck --repo-off` workflow;
+- per-host action summary and manifest.
 
-Repository quarantine is an explicitly requested administrative operation. It
-can run separately or as an opt-in action immediately before precheck:
+### PostgreSQL
 
-```bash
-./bin/steamroller repo-off dev
-./bin/steamroller precheck dev --repo-off
-```
+- all installed `postgresql*` RPMs and versions;
+- RPM vendor and packager evidence;
+- `RED HAT`, `COMMUNITY (PGDG)`, `MIXED`, `UNKNOWN`, or `NOT INSTALLED`;
+- warnings for mixed or unknown provenance;
+- available PostgreSQL versions and source repositories;
+- dedicated terminal, text, and JSON evidence.
 
-### DNF and RPM health
+### Capacity, mounts, and system state
 
-- detection of concurrent `dnf`, `yum`, and `rpm` processes;
-- read-only `dnf check` dependency validation;
-- `dnf check-update`, with return code 100 correctly treated as success;
-- total available update count;
-- separate kernel, systemd, and glibc update counts;
-- pre-existing reboot requirement detection.
+- at least 4096 MiB free on `/`;
+- at least 400 MiB free on `/boot`;
+- inode warnings at 80% and failures at 95%;
+- mandatory mounts derived from `/etc/fstab`;
+- missing and read-only mandatory mounts;
+- IP addresses, routing, and NetworkManager state;
+- running, enabled, and failed systemd units;
+- `dnf check` and package-manager concurrency.
 
-### PostgreSQL packages
+### Controlled reboot
 
-- inventory of every installed `postgresql*` RPM with version and vendor;
-- classification as `RED HAT`, `COMMUNITY (PGDG)`, `MIXED`, or `UNKNOWN`;
-- warning for mixed or unknown provenance;
-- available PostgreSQL package versions and source repositories;
-- dedicated terminal, text, and JSON report sections.
+- exactly one host selected from the requested inventory;
+- typed interactive confirmation or explicit `--confirm`;
+- block while `dnf`, `yum`, or `rpm` is active;
+- mandatory mount validation before and after reboot;
+- PRE evidence written before changing state;
+- SSH return and boot-ID change validation;
+- old/new kernel and uptime comparison;
+- detection of newly failed systemd units;
+- configurable timeout, default 900 seconds.
 
-### Filesystems, disk space, and inodes
+## Reporting
 
-Absolute free space is the blocking criterion:
+Each run uses an immutable UTC run ID and per-server directory. The terminal
+summary covers every expected host, including unreachable hosts. Reports are
+classified as `CONNECTIVITY`, `PRECHECK`, `REPO-OFF`, `REBOOT`, or incomplete.
 
-```yaml
-steamroller_root_min_free_mb: 4096
-steamroller_boot_min_free_mb: 400
-```
-
-Percentage use remains an additional warning indicator and is not, by itself,
-a blocking capacity decision.
-
-Inode limits are:
-
-```yaml
-steamroller_inode_warning_percent: 80
-steamroller_inode_failure_percent: 95
-```
-
-Mandatory mount points are derived from `/etc/fstab`. Swap and entries using
-`noauto` are excluded. A mandatory mount that is missing or read-only fails
-precheck.
-
-### Network and services
-
-- IP address collection;
-- routing-table collection;
-- NetworkManager device status when available;
-- running, enabled, and failed service evidence;
-- services failed at precheck time reported by name as warnings.
-
-Application-specific and critical-service policies are not yet enabled.
-
-## Configuration
-
-Global defaults are stored in:
-
-```text
-config/steamroller.yml
-```
-
-The future RPM location is:
-
-```text
-/etc/steamroller/steamroller.yml
-```
-
-Effective non-sensitive configuration can be displayed with:
-
-```bash
-./bin/steamroller config dev
-```
-
-Configuration is validated locally before contacting managed hosts. Invalid
-percentages, thresholds, policy names, value types, or an empty inventory stop
-execution with `CONFIG FAIL`.
-
-## Reports
-
-Reports use the remote server name and immutable run ID:
-
-```text
-reports/SERVER_NAME/RUN_ID/
-```
-
-A typical precheck produces:
+A typical precheck report contains:
 
 ```text
 checks.json
@@ -187,6 +121,7 @@ kernel.txt
 mounts.txt
 network.txt
 os.txt
+postgresql.txt
 precheck.txt
 repo-files.txt
 repositories.txt
@@ -199,80 +134,65 @@ updates-planned.txt
 uptime.txt
 ```
 
-The final terminal report includes fleet counts, per-host status, current and
-next kernel, update counts, absolute disk capacity, inode use, mandatory mount
-state, warning and failure details, and the exact report directory.
+## Configuration defaults
 
-## Result model
-
-Each read-only precheck host currently ends with:
-
-```text
-PASS
-WARNING
-FAIL
+```yaml
+steamroller_registration_mode: auto
+steamroller_root_min_free_mb: 4096
+steamroller_boot_min_free_mb: 400
+steamroller_inode_warning_percent: 80
+steamroller_inode_failure_percent: 95
+steamroller_uptime_warning_days: 90
+steamroller_uptime_high_days: 180
+steamroller_uptime_critical_days: 365
+steamroller_custom_repo_policy: fail
+steamroller_allowed_repo_files:
+  - redhat.repo
 ```
 
-Unreachable hosts and hosts that do not produce evidence are displayed as
-failures in the fleet summary. Any blocking host causes a non-zero command exit
-status.
+Configuration is validated before contacting managed hosts.
 
-## Security and repository hygiene
+## Verification completed
 
-- SSH host-key checking remains enabled;
-- passwords, tokens, private keys, and sudo credentials must not be committed;
-- real customer inventories are ignored by Git;
-- runtime reports and repository backups are ignored by Git;
-- repository backup files use mode `0600`;
-- normal report directories use mode `0750`;
-- precheck never modifies the managed host unless the operator explicitly
-  supplies `--repo-off`;
+- Bash and Python syntax checks;
+- Ansible syntax checks for all playbooks;
+- inventory-manager create/add/delete/list and atomic-failure tests;
+- SSH-key discovery and Bash completion tests;
+- multi-host precheck on real Satellite-managed RHEL 9 systems;
+- Satellite Simple Content Access behavior;
+- repository quarantine and PostgreSQL terminal rendering.
 
-## License and public development
+No real reboot was performed by the development environment when the reboot
+workflow was introduced; customer-side controlled validation remains required.
 
-SteamRoller is publicly developed under the GNU Affero General Public License,
-version 3 or any later version (`AGPL-3.0-or-later`). Network users must be
-offered the corresponding source code as required by the license. The complete
-license text is provided in `LICENSE`.
+## Security model
 
-## Source and future installation layout
+- SSH host-key verification stays enabled;
+- private keys, inventories, reports, and repository backups are ignored by Git;
+- private-key contents are never included in reports;
+- normal checks remain read-only;
+- mutating commands require an explicit action or option;
+- repository backups use mode `0600`;
+- report directories use mode `0750`.
 
-Development runs directly from the cloned source tree. RPM creation is being
-deferred until the read-only release is complete and validated on real systems.
+## Remaining work
 
-The planned installed layout is:
-
-```text
-/opt/steamroller/                 application code
-/etc/steamroller/                 configuration and inventories
-/var/lib/steamroller/reports/     persistent evidence
-/var/log/steamroller/             operational logs
-/usr/bin/steamroller              operator entry point
-```
-
-## Remaining work for read-only v1
-
-- test negative paths for unsupported OS, invalid registration, unavailable
-  repositories, DNF concurrency, inode exhaustion, missing fstab mounts, and
-  unreachable hosts;
-- test the fleet summary with multiple real hosts;
-- decide and implement the final fleet-level persistent summary format;
-- complete normalized structured evidence only where required by operations;
-- document customer onboarding and inventory creation;
-- document report retention and backup policy;
-- validate source-based operation from clean RHEL 9 and RHEL 10 control nodes;
-- defer RPM build and installation tests until the read-only behavior is
-  accepted.
+- validate controlled reboot on real non-production hosts;
+- expand negative-path testing for DNF locks, damaged RPM state, missing mounts,
+  inode exhaustion, and hosts that do not return after reboot;
+- validate source installation from clean RHEL 9 and RHEL 10 control nodes;
+- define report retention and backup policy;
+- improve failed-systemd-unit classification by unit type;
+- complete RPM build and clean installation testing;
+- design patch execution only after 0.2 acceptance.
 
 ## Explicitly deferred
 
-- package updates;
-- automatic or fleet-wide reboot;
-- post-patch checks;
-- PRE/POST comparison;
+- package update execution;
+- automatic or multi-host reboot;
+- cluster and HA detection/orchestration;
+- application stop/start workflows;
 - automatic filesystem cleanup;
 - automatic RPM database repair;
-- automatic repository modification during precheck;
-- cluster and HA automation;
-- application changes;
-- custom GUI.
+- Satellite Content View or Lifecycle Environment changes;
+- graphical interface.
