@@ -38,6 +38,21 @@ _steamroller_key_profiles() {
     done
 }
 
+_steamroller_inventory_hosts() {
+    local environment="$1"
+    local root inventory executable source_root
+    root="$(_steamroller_inventory_root)" || return
+    inventory="$root/$environment/hosts.yml"
+    [[ -r "$inventory" ]] || return
+    executable="$(type -P steamroller 2>/dev/null)" || return
+    source_root="$(cd "$(dirname "$executable")/.." 2>/dev/null && pwd)" || return
+    if [[ -x "$source_root/scripts/inventory_hostnames.py" || -r "$source_root/scripts/inventory_hostnames.py" ]]; then
+        python3 "$source_root/scripts/inventory_hostnames.py" --inventory "$inventory" 2>/dev/null
+    elif [[ -r /opt/steamroller/scripts/inventory_hostnames.py ]]; then
+        python3 /opt/steamroller/scripts/inventory_hostnames.py --inventory "$inventory" 2>/dev/null
+    fi
+}
+
 _steamroller_complete_inventory_action() {
     local subcommand="$1"
     local current="$2"
@@ -65,7 +80,7 @@ _steamroller() {
     action="${COMP_WORDS[1]:-}"
 
     if (( COMP_CWORD == 1 )); then
-        COMPREPLY=( $(compgen -W 'precheck connectivity repo-off config inventory doctor status version' -- "$current") )
+        COMPREPLY=( $(compgen -W 'precheck connectivity repo-off reboot config inventory doctor status version' -- "$current") )
         return
     fi
 
@@ -86,6 +101,17 @@ _steamroller() {
         config|doctor)
             if (( COMP_CWORD == 2 )); then
                 COMPREPLY=( $(compgen -W "$(_steamroller_inventories)" -- "$current") )
+            fi
+            ;;
+        reboot)
+            if [[ "$previous" == "-sk" || "$previous" == "--ssh-key" ]]; then
+                COMPREPLY=( $(compgen -W "$(_steamroller_key_profiles)" -- "$current") )
+            elif [[ "$previous" == "--host" ]]; then
+                COMPREPLY=( $(compgen -W "$(_steamroller_inventory_hosts "${COMP_WORDS[2]:-}")" -- "$current") )
+            elif (( COMP_CWORD == 2 )); then
+                COMPREPLY=( $(compgen -W "$(_steamroller_inventories)" -- "$current") )
+            else
+                COMPREPLY=( $(compgen -W '--host -q --quiet -sk --ssh-key --confirm --timeout' -- "$current") )
             fi
             ;;
         inventory)

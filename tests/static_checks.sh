@@ -15,16 +15,19 @@ required_files=(
     playbooks/10-precheck.yml
     playbooks/11-precheck-repo-off.yml
     playbooks/15-repo-off.yml
+    playbooks/20-reboot.yml
     roles/connectivity/tasks/main.yml
     roles/precheck/tasks/main.yml
     roles/precheck/templates/precheck.txt.j2
     roles/repo_quarantine/tasks/main.yml
+    roles/reboot_host/tasks/main.yml
     scripts/render_summary.py
     scripts/show_config.py
     scripts/validate_config.py
     scripts/list_reports.py
     scripts/manage_inventory.py
     scripts/resolve_ssh_key.py
+    scripts/inventory_hostnames.py
     scripts/test_satellite_check.sh
     setup/manual/install-source-path.sh
     setup/README.md
@@ -41,11 +44,18 @@ for required_file in "${required_files[@]}"; do
 done
 
 if grep -REn --include='*.yml' --include='*.yaml' \
-    'ansible\.builtin\.(dnf|yum|reboot):|(^|[[:space:]])(dnf|yum)[[:space:]]+(update|upgrade)' \
+    'ansible\.builtin\.(dnf|yum):|(^|[[:space:]])(dnf|yum)[[:space:]]+(update|upgrade)' \
     playbooks roles; then
-    printf 'Phase 1 must not contain patch or reboot actions.\n' >&2
+    printf 'Phase 1 must not contain package update actions.\n' >&2
     exit 1
 fi
+
+reboot_action_files="$(grep -REl --include='*.yml' --include='*.yaml' \
+    'ansible\.builtin\.reboot:' playbooks roles || true)"
+[[ "$reboot_action_files" == "roles/reboot_host/tasks/main.yml" ]] || {
+    printf 'Reboot actions are permitted only in the controlled reboot role.\n' >&2
+    exit 1
+}
 
 grep -q 'steamroller_registration_mode: auto' inventories/dev/group_vars/all.yml
 grep -q 'steamroller_cluster_check_enabled: false' inventories/dev/group_vars/all.yml
@@ -54,6 +64,7 @@ grep -q '%config(noreplace)' packaging/rpm/steamroller.spec
 grep -q -- '--private-key' bin/steamroller
 grep -q -- '--ssh-key' bin/steamroller
 grep -q -- '-q|--quiet' bin/steamroller
+grep -q -- 'reboot ENVIRONMENT --host HOST' bin/steamroller
 [[ -x setup/manual/install-source-path.sh ]]
 
 bash -n bin/steamroller
@@ -66,6 +77,8 @@ python3 -m py_compile scripts/validate_config.py
 python3 -m py_compile scripts/list_reports.py
 python3 -m py_compile scripts/manage_inventory.py
 python3 -m py_compile scripts/resolve_ssh_key.py
+python3 -m py_compile scripts/inventory_hostnames.py
+python3 scripts/inventory_hostnames.py --inventory inventories/dev/hosts.yml --contains rh98virt
 python3 -m unittest tests/test_inventory_manager.py
 python3 -m unittest tests/test_ssh_key_resolver.py
 

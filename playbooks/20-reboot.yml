@@ -1,0 +1,12 @@
+---
+- name: SteamRoller controlled single-host reboot
+  hosts: all
+  gather_facts: true
+  become: true
+  any_errors_fatal: false
+  pre_tasks:
+    - name: Create immutable SteamRoller run ID
+      ansible.builtin.set_fact:
+        steamroller_run_id: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+  roles:
+    - reboot_host

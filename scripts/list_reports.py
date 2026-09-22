@@ -17,6 +17,10 @@ def run_time(run_id: str) -> str:
 
 
 def run_type(directory: Path) -> str:
+    if (directory / "reboot.txt").is_file():
+        return "REBOOT"
+    if (directory / "reboot-pre.txt").is_file():
+        return "REBOOT-STARTED"
     if (directory / "precheck.txt").is_file():
         return "PRECHECK"
     if (directory / "connectivity.txt").is_file():
@@ -73,11 +77,14 @@ def main() -> int:
 
     connectivity_servers = sorted({row[0] for row in rows if row[3] == "CONNECTIVITY"})
     precheck_servers = sorted({row[0] for row in rows if row[3] == "PRECHECK"})
+    reboot_servers = sorted({row[0] for row in rows if row[3] == "REBOOT"})
     if connectivity_servers:
         print()
         print("CONNECTIVITY directories: " + ", ".join(connectivity_servers))
     if precheck_servers:
         print("PRECHECK report directories: " + ", ".join(precheck_servers))
+    if reboot_servers:
+        print("REBOOT report directories: " + ", ".join(reboot_servers))
     return 0
 
 

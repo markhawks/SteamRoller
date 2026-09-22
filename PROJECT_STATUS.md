@@ -8,12 +8,14 @@ License: GNU Affero General Public License v3.0 or later
 
 ## Current scope
 
-SteamRoller v1 is a read-only validation and evidence-collection tool for
-remote Red Hat Enterprise Linux 9.x systems. The Ansible control node may run
-RHEL 9 or RHEL 10.
+SteamRoller v1 is primarily a read-only validation and evidence-collection
+tool for remote Red Hat Enterprise Linux 9.x systems, with separately requested
+repository-quarantine and single-host reboot operations. The Ansible control
+node may run RHEL 9 or RHEL 10.
 
-Package installation, system patching, reboot orchestration, post-patch
-validation, and PRE/POST comparison are not part of the first release.
+Package installation and system patching are not part of the first release.
+A separately confirmed reboot command supports one inventory host at a time
+and records focused PRE/POST reboot evidence.
 
 The project supports hosts registered directly with Red Hat CDN and hosts
 registered with Red Hat Satellite. Satellite validation is read-only and does
@@ -31,6 +33,7 @@ laboratory.
 ./bin/steamroller connectivity dev --quiet
 ./bin/steamroller precheck dev
 ./bin/steamroller precheck dev --quiet
+./bin/steamroller reboot dev --host rh98virt
 ./bin/steamroller status
 ```
 
@@ -256,7 +259,7 @@ The planned installed layout is:
 ## Explicitly deferred
 
 - package updates;
-- automatic reboot;
+- automatic or fleet-wide reboot;
 - post-patch checks;
 - PRE/POST comparison;
 - automatic filesystem cleanup;

@@ -103,13 +103,15 @@ def main() -> int:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--inventory", required=True)
     parser.add_argument("--environment", required=True)
+    parser.add_argument("--expected-host", action="append")
     args = parser.parse_args()
 
     palette = Palette()
     report_root = Path(args.report_root)
     rows = load_rows(report_root, args.run_id)
     present_hosts = {str(row.get("host", "")) for row in rows}
-    for host in expected_hosts(args.inventory):
+    expected = args.expected_host or expected_hosts(args.inventory)
+    for host in expected:
         if host not in present_hosts:
             rows.append(
                 {
@@ -226,6 +228,43 @@ def main() -> int:
                     print(f"    [{palette.status('PASS')}] {filename}")
             else:
                 print("  Files backed up and moved before precheck: none (no action required)")
+
+    reboot_rows = [row for row in rows if row.get("operation") == "reboot"]
+    if reboot_rows:
+        print()
+        print(f"{palette.bold}REBOOT DETAILS{palette.reset}")
+        for row in reboot_rows:
+            server = row.get("fqdn") or row.get("host")
+            status = str(row.get("status", "FAIL"))
+            reboot = row.get("reboot", {}) or {}
+            boot_changed = bool(reboot.get("boot_id_changed", False))
+            missing_mounts = list(reboot.get("missing_mounts_after", []) or [])
+            new_failed = list(reboot.get("new_failed_services", []) or [])
+            print()
+            print(f"{palette.bold}{server}{palette.reset} [{palette.status(status)}]")
+            print(f"  Previous uptime: {reboot.get('previous_uptime_days', '-')} days")
+            print(f"  Current uptime: {reboot.get('current_uptime_seconds', '-')} seconds")
+            print(f"  Previous kernel: {reboot.get('previous_kernel') or '-'}")
+            print(f"  Current kernel: {reboot.get('current_kernel') or '-'}")
+            print(f"  Newest installed kernel: {reboot.get('newest_installed_kernel') or '-'}")
+            print(
+                f"  Boot ID changed: "
+                f"{palette.status('PASS' if boot_changed else 'FAIL')}"
+            )
+            print(
+                f"  Mandatory mounts: "
+                f"{palette.status('PASS' if not missing_mounts else 'FAIL')}"
+            )
+            if missing_mounts:
+                print(f"  Missing mounts: {', '.join(missing_mounts)}")
+            print("  New failed services:")
+            if new_failed:
+                for service in new_failed:
+                    print(f"    [{palette.status('FAIL')}] {service_name(service)}")
+            else:
+                print(f"    [{palette.status('PASS')}] none")
+            print(f"  Reboot duration: {row.get('duration_seconds', '-')} seconds")
+            print(f"  Report: {row.get('report_dir', '-')}")
 
     detailed_rows = [row for row in rows if row.get("os") or row.get("disk_space")]
     if detailed_rows:

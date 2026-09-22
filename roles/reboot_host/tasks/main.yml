@@ -1,0 +1,202 @@
+---
+- name: Initialize reboot evidence
+  ansible.builtin.set_fact:
+    steamroller_server_name: "{{ ansible_fqdn | regex_replace('[^A-Za-z0-9._-]', '_') }}"
+    steamroller_reboot_started_epoch: "{{ lookup('pipe', 'date +%s') | int }}"
+    steamroller_reboot_report_dir: >-
+      {{ steamroller_report_root }}/{{ ansible_fqdn | regex_replace('[^A-Za-z0-9._-]', '_') }}/{{ steamroller_run_id }}
+
+- name: Detect active package-manager processes before reboot
+  ansible.builtin.command: pgrep -x dnf yum rpm
+  changed_when: false
+  failed_when: false
+  register: steamroller_reboot_package_processes
+
+- name: Stop reboot while a package manager is active
+  ansible.builtin.fail:
+    msg: Active dnf, yum, or rpm process blocks reboot
+  when: steamroller_reboot_package_processes.rc == 0
+
+- name: Read pre-reboot boot ID
+  ansible.builtin.command: cat /proc/sys/kernel/random/boot_id
+  changed_when: false
+  register: steamroller_old_boot_id
+
+- name: Read pre-reboot kernel
+  ansible.builtin.command: uname -r
+  changed_when: false
+  register: steamroller_old_kernel
+
+- name: Read newest installed kernel
+  ansible.builtin.command: rpm -q --last kernel-core
+  changed_when: false
+  register: steamroller_reboot_installed_kernels
+
+- name: Collect failed services before reboot
+  ansible.builtin.command: systemctl --failed --no-legend --plain
+  changed_when: false
+  failed_when: false
+  register: steamroller_reboot_failed_services_before
+
+- name: Collect mandatory fstab mount targets
+  ansible.builtin.command: findmnt --fstab --raw --noheadings --output TARGET
+  changed_when: false
+  register: steamroller_reboot_fstab_targets
+
+- name: Determine pre-reboot mount state
+  ansible.builtin.set_fact:
+    steamroller_reboot_required_mounts: >-
+      {{ steamroller_reboot_fstab_targets.stdout_lines | default([]) |
+         select('match', '^/') | unique | sort | list }}
+    steamroller_reboot_active_mounts_before: >-
+      {{ ansible_mounts | map(attribute='mount') | unique | sort | list }}
+    steamroller_previous_uptime_seconds: "{{ ansible_uptime_seconds | int }}"
+
+- name: Refuse reboot when an fstab mount is missing
+  ansible.builtin.fail:
+    msg: >-
+      Mandatory fstab mounts are missing before reboot:
+      {{ steamroller_reboot_required_mounts |
+         difference(steamroller_reboot_active_mounts_before) | join(', ') }}
+  when: steamroller_reboot_required_mounts | difference(steamroller_reboot_active_mounts_before) | length > 0
+
+- name: Create reboot report directory on control node
+  ansible.builtin.file:
+    path: "{{ steamroller_reboot_report_dir }}"
+    state: directory
+    mode: "0750"
+  delegate_to: localhost
+  become: false
+
+- name: Persist pre-reboot evidence before changing host state
+  ansible.builtin.copy:
+    dest: "{{ steamroller_reboot_report_dir }}/reboot-pre.txt"
+    mode: "0640"
+    content: |
+      STEAMROLLER PRE-REBOOT EVIDENCE
+      Run ID: {{ steamroller_run_id }}
+      Host: {{ inventory_hostname }}
+      FQDN: {{ ansible_fqdn }}
+      Boot ID: {{ steamroller_old_boot_id.stdout | trim }}
+      Kernel: {{ steamroller_old_kernel.stdout | trim }}
+      Uptime seconds: {{ steamroller_previous_uptime_seconds }}
+      Mandatory mounts: {{ steamroller_reboot_required_mounts | join(', ') or 'none' }}
+      Failed services:
+      {% for service in steamroller_reboot_failed_services_before.stdout_lines | default([]) %}- {{ service }}
+      {% else %}- none
+      {% endfor %}
+  delegate_to: localhost
+  become: false
+
+- name: Reboot the managed host and wait for SSH
+  ansible.builtin.reboot:
+    reboot_timeout: "{{ steamroller_reboot_timeout | default(900) | int }}"
+    connect_timeout: 10
+    post_reboot_delay: 10
+    test_command: whoami
+    msg: SteamRoller controlled reboot
+  register: steamroller_reboot_result
+
+- name: Refresh facts after reboot
+  ansible.builtin.setup:
+
+- name: Read post-reboot boot ID
+  ansible.builtin.command: cat /proc/sys/kernel/random/boot_id
+  changed_when: false
+  register: steamroller_new_boot_id
+
+- name: Read post-reboot kernel
+  ansible.builtin.command: uname -r
+  changed_when: false
+  register: steamroller_new_kernel
+
+- name: Collect failed services after reboot
+  ansible.builtin.command: systemctl --failed --no-legend --plain
+  changed_when: false
+  failed_when: false
+  register: steamroller_reboot_failed_services_after
+
+- name: Determine post-reboot validation
+  ansible.builtin.set_fact:
+    steamroller_reboot_active_mounts_after: >-
+      {{ ansible_mounts | map(attribute='mount') | unique | sort | list }}
+    steamroller_reboot_new_failed_services: >-
+      {{ steamroller_reboot_failed_services_after.stdout_lines | default([]) |
+         difference(steamroller_reboot_failed_services_before.stdout_lines | default([])) }}
+    steamroller_reboot_finished_epoch: "{{ lookup('pipe', 'date +%s') | int }}"
+
+- name: Build reboot summary
+  ansible.builtin.set_fact:
+    steamroller_reboot_summary:
+      run_id: "{{ steamroller_run_id }}"
+      host: "{{ inventory_hostname }}"
+      fqdn: "{{ ansible_fqdn }}"
+      environment: "{{ steamroller_environment | default('unspecified') }}"
+      timestamp_utc: "{{ ansible_date_time.iso8601 }}"
+      status: >-
+        {{ 'FAIL'
+           if (steamroller_old_boot_id.stdout | trim == steamroller_new_boot_id.stdout | trim or
+               steamroller_reboot_required_mounts | difference(steamroller_reboot_active_mounts_after) | length > 0 or
+               steamroller_reboot_new_failed_services | length > 0)
+           else 'PASS' }}
+      operation: reboot
+      duration_seconds: >-
+        {{ steamroller_reboot_finished_epoch | int - steamroller_reboot_started_epoch | int }}
+      reboot:
+        previous_boot_id: "{{ steamroller_old_boot_id.stdout | trim }}"
+        current_boot_id: "{{ steamroller_new_boot_id.stdout | trim }}"
+        boot_id_changed: >-
+          {{ steamroller_old_boot_id.stdout | trim != steamroller_new_boot_id.stdout | trim }}
+        previous_kernel: "{{ steamroller_old_kernel.stdout | trim }}"
+        current_kernel: "{{ steamroller_new_kernel.stdout | trim }}"
+        newest_installed_kernel: >-
+          {{ (steamroller_reboot_installed_kernels.stdout_lines | default([]) | first | default('')).split() | first | default('') }}
+        previous_uptime_days: "{{ (steamroller_previous_uptime_seconds | int) // 86400 }}"
+        current_uptime_seconds: "{{ ansible_uptime_seconds | int }}"
+        mandatory_mounts: "{{ steamroller_reboot_required_mounts }}"
+        missing_mounts_after: >-
+          {{ steamroller_reboot_required_mounts | difference(steamroller_reboot_active_mounts_after) }}
+        failed_services_before: "{{ steamroller_reboot_failed_services_before.stdout_lines | default([]) }}"
+        failed_services_after: "{{ steamroller_reboot_failed_services_after.stdout_lines | default([]) }}"
+        new_failed_services: "{{ steamroller_reboot_new_failed_services }}"
+      warnings: []
+      failures: >-
+        {{ ([] if steamroller_old_boot_id.stdout | trim != steamroller_new_boot_id.stdout | trim
+               else ['Boot ID did not change after reboot']) +
+           ([] if steamroller_reboot_required_mounts | difference(steamroller_reboot_active_mounts_after) | length == 0
+               else ['Mandatory fstab mounts are missing after reboot']) +
+           ([] if steamroller_reboot_new_failed_services | length == 0
+               else ['New failed services appeared after reboot']) }}
+
+- name: Persist reboot JSON summary
+  ansible.builtin.copy:
+    dest: "{{ steamroller_reboot_report_dir }}/summary.json"
+    mode: "0640"
+    content: "{{ steamroller_reboot_summary | to_nice_json }}\n"
+  delegate_to: localhost
+  become: false
+
+- name: Persist reboot text report
+  ansible.builtin.copy:
+    dest: "{{ steamroller_reboot_report_dir }}/reboot.txt"
+    mode: "0640"
+    content: |
+      STEAMROLLER CONTROLLED REBOOT
+      Run ID: {{ steamroller_run_id }}
+      Host: {{ inventory_hostname }}
+      FQDN: {{ ansible_fqdn }}
+      Previous boot ID: {{ steamroller_old_boot_id.stdout | trim }}
+      Current boot ID: {{ steamroller_new_boot_id.stdout | trim }}
+      Previous kernel: {{ steamroller_old_kernel.stdout | trim }}
+      Current kernel: {{ steamroller_new_kernel.stdout | trim }}
+      Current uptime seconds: {{ ansible_uptime_seconds | int }}
+      Missing mandatory mounts: {{ steamroller_reboot_required_mounts | difference(steamroller_reboot_active_mounts_after) | join(', ') or 'none' }}
+      New failed services: {{ steamroller_reboot_new_failed_services | join(', ') or 'none' }}
+      Result: {{ steamroller_reboot_summary.status }}
+  delegate_to: localhost
+  become: false
+
+- name: Fail reboot validation when post-reboot checks failed
+  ansible.builtin.fail:
+    msg: Post-reboot validation failed; inspect the reboot report
+  when: steamroller_reboot_summary.status == 'FAIL'

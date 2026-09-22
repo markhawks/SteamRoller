@@ -17,8 +17,11 @@ The current implementation is **Phase 1 only**:
 - direct Red Hat CDN and Red Hat Satellite registration and repository checks;
 - persistent per-host text and JSON evidence.
 
-It does not update packages, reboot hosts, modify subscriptions, or perform
-cluster/HA checks.
+It does not update packages, modify subscriptions, or perform cluster/HA
+orchestration.
+
+An explicitly confirmed, single-host controlled reboot is available. It never
+selects an entire inventory and does not provide cluster/HA orchestration.
 
 Repository configuration files are inspected by filename only. Files other
 than those listed in `steamroller_allowed_repo_files` fail precheck by default.
@@ -80,6 +83,24 @@ Display the effective, non-sensitive defaults for an environment:
 ```bash
 ./bin/steamroller config dev
 ```
+
+Reboot exactly one inventory host, with an interactive confirmation:
+
+```bash
+steamroller reboot AlfrescoDev --host server01.example.net -sk foreman
+```
+
+For non-interactive execution, authorization must be explicit:
+
+```bash
+steamroller reboot AlfrescoDev --host server01.example.net \
+  -sk foreman --confirm -q
+```
+
+SteamRoller blocks reboot while `dnf`, `yum`, or `rpm` is active, verifies
+mandatory fstab mounts before and after, waits for SSH, confirms that the boot
+ID changed, compares kernels and failed services, and writes persistent PRE/POST
+evidence. `--timeout SECONDS` changes the default 900-second reboot timeout.
 
 The wrapper automatically recognizes a source checkout. After RPM installation
 the same commands use `/opt/steamroller` and `/etc/steamroller`.
