@@ -107,8 +107,8 @@ NETWORKMANAGER DEVICES
 ----------------------
 {{ steamroller_nmcli_devices.stdout | default('') }}
 
-FAILED SERVICES (PRE-EXISTING)
-------------------------------
+FAILED SERVICES AT PRECHECK TIME
+--------------------------------
 {{ steamroller_failed_services.stdout | default('none') }}
 
 RUNNING SERVICES

@@ -546,7 +546,7 @@
 
 - name: Add pre-existing failed-services warning
   ansible.builtin.set_fact:
-    steamroller_warnings: "{{ steamroller_warnings + ['One or more services were already failed before patching'] }}"
+    steamroller_warnings: "{{ steamroller_warnings + ['One or more services are failed at precheck time'] }}"
   when: steamroller_failed_services.stdout | trim | length > 0
 
 - name: Add pre-existing reboot requirement warning

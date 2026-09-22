@@ -126,7 +126,7 @@ precheck.
 - routing-table collection;
 - NetworkManager device status when available;
 - running, enabled, and failed service evidence;
-- pre-existing failed services reported as warnings.
+- services failed at precheck time reported by name as warnings.
 
 Application-specific and critical-service policies are not yet enabled.
 

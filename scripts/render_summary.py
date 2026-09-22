@@ -91,6 +91,12 @@ def text(value: object, maximum: int) -> str:
     return rendered if len(rendered) <= maximum else rendered[: maximum - 1] + "…"
 
 
+def service_name(line: object) -> str:
+    """Extract a systemd unit name from systemctl --failed output."""
+    fields = str(line).strip().lstrip("●").strip().split()
+    return fields[0] if fields else "unknown-service"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--report-root", required=True)
@@ -182,6 +188,7 @@ def main() -> int:
             filesystems = row.get("filesystems", []) or []
             inode_thresholds = row.get("inode_thresholds", {}) or {}
             fstab_mounts = row.get("fstab_mounts", {}) or {}
+            failed_services = row.get("failed_services", []) or []
             print()
             print(f"{palette.bold}{server}{palette.reset} [{palette.status(status)}]")
             print(f"  OS: RHEL {os_data.get('version', '-')}")
@@ -235,6 +242,14 @@ def main() -> int:
                     f"missing {', '.join(fstab_mounts.get('missing', [])) or 'none'}; "
                     f"read-only {', '.join(fstab_mounts.get('read_only', [])) or 'none'}"
                 )
+            if failed_services:
+                print(
+                    "  Failed services: "
+                    + ", ".join(service_name(line) for line in failed_services)
+                    + f" [{palette.status('WARNING')}]"
+                )
+            else:
+                print(f"  Failed services: none [{palette.status('PASS')}]")
             print(f"  Report: {row.get('report_dir', '-')}")
 
     print()
