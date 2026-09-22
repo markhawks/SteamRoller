@@ -26,14 +26,6 @@ def run_type(directory: Path) -> str:
     return "INCOMPLETE"
 
 
-def contents(directory: Path) -> str:
-    entries: list[str] = []
-    for path in sorted(directory.rglob("*")):
-        relative = path.relative_to(directory)
-        entries.append(f"{relative}/" if path.is_dir() else str(relative))
-    return ", ".join(entries) if entries else "empty"
-
-
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--report-root", required=True)
@@ -44,7 +36,7 @@ def main() -> int:
         print(f"No reports found in {report_root}")
         return 0
 
-    rows: list[tuple[str, str, str, str, str]] = []
+    rows: list[tuple[str, str, str, str]] = []
     for server_directory in report_root.iterdir():
         if not server_directory.is_dir():
             continue
@@ -58,7 +50,6 @@ def main() -> int:
                     run_time(run_id),
                     run_id,
                     run_type(run_directory),
-                    contents(run_directory),
                 )
             )
 
@@ -74,11 +65,11 @@ def main() -> int:
         max(12, max(len(row[3]) for row in rows)),
     )
     headers = ("SERVER", "EXECUTION TIME", "RUN ID", "TYPE")
-    print("  ".join(f"{header:<{width}}" for header, width in zip(headers, widths)) + "  CONTENTS")
-    print("  ".join("-" * width for width in widths) + "  " + "-" * 40)
-    for server, execution_time, run_id, kind, run_contents in rows:
+    print("  ".join(f"{header:<{width}}" for header, width in zip(headers, widths)))
+    print("  ".join("-" * width for width in widths))
+    for server, execution_time, run_id, kind in rows:
         values = (server, execution_time, run_id, kind)
-        print("  ".join(f"{value:<{width}}" for value, width in zip(values, widths)) + f"  {run_contents}")
+        print("  ".join(f"{value:<{width}}" for value, width in zip(values, widths)))
 
     connectivity_servers = sorted({row[0] for row in rows if row[3] == "CONNECTIVITY"})
     precheck_servers = sorted({row[0] for row in rows if row[3] == "PRECHECK"})
