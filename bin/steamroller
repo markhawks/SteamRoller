@@ -25,12 +25,13 @@ readonly CONFIG_ROOT="${STEAMROLLER_CONFIG_ROOT:-${DEFAULT_CONFIG_ROOT}}"
 readonly SETTINGS_FILE="${STEAMROLLER_SETTINGS_FILE:-${DEFAULT_SETTINGS_FILE}}"
 readonly REPORT_ROOT="${STEAMROLLER_REPORT_ROOT:-${DEFAULT_REPORT_ROOT}}"
 readonly STEAMROLLER_ANSIBLE_CONFIG="${ANSIBLE_CONFIG:-${DEFAULT_ANSIBLE_CONFIG}}"
+readonly SSH_KEY_ROOT="${STEAMROLLER_SSH_KEY_ROOT:-${CONFIG_ROOT}/ssh-keys}"
 
 usage() {
     printf '%s\n' \
-        'Usage: steamroller precheck ENVIRONMENT [-q|--quiet] [--ssh-key PATH] [ansible-playbook options]' \
-        '       steamroller connectivity ENVIRONMENT [-q|--quiet] [--ssh-key PATH] [ansible-playbook options]' \
-        '       steamroller repo-off ENVIRONMENT [-q|--quiet] [--ssh-key PATH] [ansible-playbook options]' \
+        'Usage: steamroller precheck ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
+        '       steamroller connectivity ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
+        '       steamroller repo-off ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
         '       steamroller config [ENVIRONMENT]' \
         '       steamroller inventory {create|add|del|list} [options]' \
         '       steamroller doctor ENVIRONMENT' \
@@ -141,9 +142,9 @@ while [[ $# -gt 0 ]]; do
             quiet=true
             shift
             ;;
-        --ssh-key)
+        -sk|--ssh-key)
             [[ $# -ge 2 ]] || {
-                printf '%s\n' 'Missing path after --ssh-key.' >&2
+                printf '%s\n' 'Missing key path or profile after -sk/--ssh-key.' >&2
                 exit 2
             }
             ssh_key="$2"
@@ -153,6 +154,10 @@ while [[ $# -gt 0 ]]; do
             ssh_key="${1#--ssh-key=}"
             shift
             ;;
+        -sk=*)
+            ssh_key="${1#-sk=}"
+            shift
+            ;;
         *)
             ansible_options+=("$1")
             shift
@@ -160,9 +165,17 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ -n "$ssh_key" && ( ! -f "$ssh_key" || ! -r "$ssh_key" ) ]]; then
-    printf 'SSH private key is not a readable file: %s\n' "$ssh_key" >&2
-    exit 2
+ssh_key_options=(--key-root "$SSH_KEY_ROOT")
+if [[ -n "$ssh_key" ]]; then
+    ssh_key_options+=(--selector "$ssh_key")
+fi
+ssh_key="$(python3 "${APP_ROOT}/scripts/resolve_ssh_key.py" "${ssh_key_options[@]}")"
+if [[ -n "$ssh_key" ]]; then
+    [[ -r "$ssh_key" ]] || {
+        printf 'SSH private key is not readable: %s\n' "$ssh_key" >&2
+        exit 2
+    }
+    printf 'SSH key: %s\n' "$ssh_key"
 fi
 
 run_id="$(date -u +%Y%m%dT%H%M%SZ)"

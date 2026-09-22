@@ -26,6 +26,7 @@ automation. The control node may run RHEL 9 or RHEL 10.
 %install
 install -d %{buildroot}/opt/steamroller/{bin,playbooks,roles,scripts}
 install -d %{buildroot}%{_sysconfdir}/steamroller/inventories/dev
+install -d -m 0700 %{buildroot}%{_sysconfdir}/steamroller/ssh-keys
 install -d %{buildroot}%{_localstatedir}/lib/steamroller/reports
 install -d %{buildroot}%{_localstatedir}/log/steamroller
 install -d %{buildroot}%{_bindir}
@@ -37,6 +38,7 @@ install -m 0755 scripts/show_config.py %{buildroot}/opt/steamroller/scripts/show
 install -m 0755 scripts/validate_config.py %{buildroot}/opt/steamroller/scripts/validate_config.py
 install -m 0755 scripts/list_reports.py %{buildroot}/opt/steamroller/scripts/list_reports.py
 install -m 0755 scripts/manage_inventory.py %{buildroot}/opt/steamroller/scripts/manage_inventory.py
+install -m 0755 scripts/resolve_ssh_key.py %{buildroot}/opt/steamroller/scripts/resolve_ssh_key.py
 install -m 0644 VERSION README.md %{buildroot}/opt/steamroller/
 install -m 0644 completions/steamroller.bash \
     %{buildroot}%{_datadir}/bash-completion/completions/steamroller
@@ -57,6 +59,7 @@ ln -s /opt/steamroller/bin/steamroller %{buildroot}%{_bindir}/steamroller
 %dir %{_sysconfdir}/steamroller
 %dir %{_sysconfdir}/steamroller/inventories
 %dir %{_sysconfdir}/steamroller/inventories/dev
+%dir %attr(0700,root,root) %{_sysconfdir}/steamroller/ssh-keys
 %config(noreplace) %{_sysconfdir}/steamroller/ansible.cfg
 %config(noreplace) %{_sysconfdir}/steamroller/steamroller.yml
 %config(noreplace) %{_sysconfdir}/steamroller/inventories/dev/hosts.yml

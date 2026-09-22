@@ -19,6 +19,25 @@ _steamroller_inventories() {
     done
 }
 
+_steamroller_key_root() {
+    local executable source_root
+    executable="$(type -P steamroller 2>/dev/null)" || return
+    source_root="$(cd "$(dirname "$executable")/.." 2>/dev/null && pwd)" || return
+    if [[ -d "$source_root/ssh-keys" ]]; then
+        printf '%s\n' "$source_root/ssh-keys"
+    elif [[ -d /etc/steamroller/ssh-keys ]]; then
+        printf '%s\n' /etc/steamroller/ssh-keys
+    fi
+}
+
+_steamroller_key_profiles() {
+    local root directory
+    root="$(_steamroller_key_root)" || return
+    for directory in "$root"/*; do
+        [[ -d "$directory" ]] && printf '%s\n' "${directory##*/}"
+    done
+}
+
 _steamroller_complete_inventory_action() {
     local subcommand="$1"
     local current="$2"
@@ -52,13 +71,12 @@ _steamroller() {
 
     case "$action" in
         precheck|connectivity|repo-off)
-            if [[ "$previous" == "--ssh-key" ]]; then
-                compopt -o filenames
-                COMPREPLY=( $(compgen -f -- "$current") )
+            if [[ "$previous" == "-sk" || "$previous" == "--ssh-key" ]]; then
+                COMPREPLY=( $(compgen -W "$(_steamroller_key_profiles)" -- "$current") )
             elif (( COMP_CWORD == 2 )); then
                 COMPREPLY=( $(compgen -W "$(_steamroller_inventories)" -- "$current") )
             else
-                COMPREPLY=( $(compgen -W '-q --quiet --ssh-key' -- "$current") )
+                COMPREPLY=( $(compgen -W '-q --quiet -sk --ssh-key' -- "$current") )
             fi
             ;;
         config|doctor)

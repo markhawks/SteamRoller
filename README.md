@@ -99,16 +99,25 @@ summary:
 steamroller precheck dev -q
 ```
 
-Use a non-default SSH private key without storing its path in the inventory:
+Store private keys in ignored, named profiles beneath `ssh-keys/`. If exactly
+one private key exists, SteamRoller selects it automatically. With multiple
+profiles, use the short `-sk` selector; the private-key filename inside the
+selected directory is discovered automatically:
 
 ```bash
-./bin/steamroller connectivity dev --ssh-key /secure/path/steamroller_ed25519
-./bin/steamroller precheck dev --quiet --ssh-key /secure/path/steamroller_ed25519
+mkdir -p ssh-keys/foreman
+cp /secure/path/id_rsa_foreman_proxy ssh-keys/foreman/
+chmod 700 ssh-keys ssh-keys/foreman
+chmod 600 ssh-keys/foreman/id_rsa_foreman_proxy
+
+steamroller connectivity dev -sk foreman
+steamroller precheck dev -q -sk foreman
 ```
 
-The equivalent environment variable is `STEAMROLLER_SSH_KEY`. The command-line
-option takes precedence over the environment variable. Private keys must stay
-outside the repository.
+After `-sk` or `--ssh-key`, Bash completion lists the available profile
+directories. Direct private-key paths remain supported. The equivalent
+environment variable is `STEAMROLLER_SSH_KEY`; `STEAMROLLER_SSH_KEY_ROOT` can
+override the managed directory. Private-key contents are never committed.
 
 The standalone read-only Satellite discovery script remains available for
 quick diagnostics:

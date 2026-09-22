@@ -7,6 +7,10 @@
 /inventories/*/host_vars/
 /inventories/*/group_vars/vault.yml
 
+# Customer SSH key material must never be committed
+/ssh-keys/*
+!/ssh-keys/README.md
+
 # Credentials and keys
 *.pem
 *.key

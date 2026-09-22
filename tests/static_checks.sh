@@ -23,10 +23,12 @@ required_files=(
     scripts/validate_config.py
     scripts/list_reports.py
     scripts/manage_inventory.py
+    scripts/resolve_ssh_key.py
     scripts/test_satellite_check.sh
     setup/manual/install-source-path.sh
     setup/README.md
     completions/steamroller.bash
+    ssh-keys/README.md
     packaging/rpm/steamroller.spec
 )
 
@@ -62,6 +64,8 @@ python3 -m py_compile scripts/show_config.py
 python3 -m py_compile scripts/validate_config.py
 python3 -m py_compile scripts/list_reports.py
 python3 -m py_compile scripts/manage_inventory.py
+python3 -m py_compile scripts/resolve_ssh_key.py
 python3 -m unittest tests/test_inventory_manager.py
+python3 -m unittest tests/test_ssh_key_resolver.py
 
 printf 'Static checks passed.\n'
