@@ -85,11 +85,12 @@ hosts and hosts that failed before producing a report.
 - additional `.repo` files fail precheck by default;
 - explicit repository quarantine utility with a protected local backup.
 
-Repository quarantine is a separate, explicitly requested administrative
-operation. It is never executed automatically by read-only precheck:
+Repository quarantine is an explicitly requested administrative operation. It
+can run separately or as an opt-in action immediately before precheck:
 
 ```bash
 ./bin/steamroller repo-off dev
+./bin/steamroller precheck dev --repo-off
 ```
 
 ### DNF and RPM health
@@ -213,7 +214,8 @@ status.
 - runtime reports and repository backups are ignored by Git;
 - repository backup files use mode `0600`;
 - normal report directories use mode `0750`;
-- precheck never modifies the managed host.
+- precheck never modifies the managed host unless the operator explicitly
+  supplies `--repo-off`;
 
 ## License and public development
 

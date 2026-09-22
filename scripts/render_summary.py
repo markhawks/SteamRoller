@@ -204,6 +204,29 @@ def main() -> int:
                 print("  Files backed up and moved: none (no action required)")
             print(f"  Report: {row.get('report_dir', '-')}")
 
+    precheck_repo_off_rows = [
+        row for row in rows if (row.get("repo_off", {}) or {}).get("requested")
+    ]
+    if precheck_repo_off_rows:
+        print()
+        print(f"{palette.bold}PRECHECK REPOSITORY QUARANTINE{palette.reset}")
+        for row in precheck_repo_off_rows:
+            server = row.get("fqdn") or row.get("host")
+            repo_off = row.get("repo_off", {}) or {}
+            files = list(repo_off.get("quarantined_files", []) or [])
+            print()
+            print(f"{palette.bold}{server}{palette.reset}")
+            print("  Requested with --repo-off: yes")
+            print(f"  Scanned directory: {repo_off.get('source_directory', '/etc/yum.repos.d')}")
+            print(f"  Local backup: {repo_off.get('local_backup_directory') or '-'}")
+            print(f"  Remote quarantine: {repo_off.get('quarantine_directory') or '-'}")
+            if files:
+                print("  Files backed up and moved before precheck:")
+                for filename in files:
+                    print(f"    [{palette.status('PASS')}] {filename}")
+            else:
+                print("  Files backed up and moved before precheck: none (no action required)")
+
     detailed_rows = [row for row in rows if row.get("os") or row.get("disk_space")]
     if detailed_rows:
         print()

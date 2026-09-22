@@ -76,7 +76,11 @@ _steamroller() {
             elif (( COMP_CWORD == 2 )); then
                 COMPREPLY=( $(compgen -W "$(_steamroller_inventories)" -- "$current") )
             else
-                COMPREPLY=( $(compgen -W '-q --quiet -sk --ssh-key' -- "$current") )
+                if [[ "$action" == "precheck" ]]; then
+                    COMPREPLY=( $(compgen -W '-q --quiet --repo-off -sk --ssh-key' -- "$current") )
+                else
+                    COMPREPLY=( $(compgen -W '-q --quiet -sk --ssh-key' -- "$current") )
+                fi
             fi
             ;;
         config|doctor)

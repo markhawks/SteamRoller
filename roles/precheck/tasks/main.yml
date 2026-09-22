@@ -716,6 +716,14 @@
       registration_mode: "{{ steamroller_effective_registration_mode }}"
       registration_mode_policy: "{{ steamroller_registration_mode }}"
       satellite_detected: "{{ steamroller_satellite_detected }}"
+      repo_off:
+        requested: "{{ steamroller_repo_off_requested | default(false) | bool }}"
+        quarantined_files: "{{ steamroller_quarantined_repo_files | default([]) }}"
+        source_directory: /etc/yum.repos.d
+        quarantine_directory: "{{ steamroller_repo_quarantine_dir | default('') }}"
+        local_backup_directory: >-
+          {{ (steamroller_local_run_dir + '/repo-backup')
+             if steamroller_local_run_dir is defined else '' }}
       satellite:
         server: "{{ steamroller_satellite_server }}"
         consumer_name: "{{ steamroller_consumer_name }}"

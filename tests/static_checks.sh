@@ -13,6 +13,7 @@ required_files=(
     inventories/dev/steamroller.yml.example
     playbooks/00-connectivity.yml
     playbooks/10-precheck.yml
+    playbooks/11-precheck-repo-off.yml
     playbooks/15-repo-off.yml
     roles/connectivity/tasks/main.yml
     roles/precheck/tasks/main.yml

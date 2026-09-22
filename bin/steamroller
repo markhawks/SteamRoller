@@ -29,7 +29,7 @@ readonly SSH_KEY_ROOT="${STEAMROLLER_SSH_KEY_ROOT:-${CONFIG_ROOT}/ssh-keys}"
 
 usage() {
     printf '%s\n' \
-        'Usage: steamroller precheck ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
+        'Usage: steamroller precheck ENVIRONMENT [-q|--quiet] [--repo-off] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
         '       steamroller connectivity ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
         '       steamroller repo-off ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
         '       steamroller config [ENVIRONMENT]' \
@@ -134,12 +134,17 @@ case "$action" in
 esac
 
 quiet=false
+repo_off_requested=false
 ssh_key="${STEAMROLLER_SSH_KEY:-}"
 ansible_options=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -q|--quiet)
             quiet=true
+            shift
+            ;;
+        --repo-off)
+            repo_off_requested=true
             shift
             ;;
         -sk|--ssh-key)
@@ -164,6 +169,14 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "$repo_off_requested" == true ]]; then
+    [[ "$action" == "precheck" ]] || {
+        printf '%s\n' '--repo-off is valid only with the precheck command.' >&2
+        exit 2
+    }
+    playbook="11-precheck-repo-off.yml"
+fi
 
 ssh_key_options=(--key-root "$SSH_KEY_ROOT")
 if [[ -n "$ssh_key" ]]; then
@@ -193,6 +206,9 @@ fi
 ansible_command+=(
     -e "steamroller_report_root=${REPORT_ROOT}"
     -e "steamroller_run_id=${run_id}")
+if [[ "$repo_off_requested" == true ]]; then
+    ansible_command+=(-e "steamroller_repo_off_requested=true")
+fi
 if [[ -n "$ssh_key" ]]; then
     ansible_command+=(--private-key "$ssh_key")
 fi

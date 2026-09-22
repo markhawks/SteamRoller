@@ -29,6 +29,17 @@ local report directory and then move them on the target beneath
 Its final terminal summary lists the scanned directory, files left in place,
 custom files found, local backup, remote quarantine, and files actually moved.
 
+Repository quarantine can also be explicitly requested immediately before a
+precheck:
+
+```bash
+steamroller precheck ENVIRONMENT --repo-off
+```
+
+This is a mutating opt-in operation: custom `.repo` files are backed up and
+moved first, then the complete precheck runs against the resulting repository
+configuration. Without `--repo-off`, precheck remains read-only.
+
 ## Development usage
 
 Create an inventory by resolving and pinging every host before writing it:
