@@ -32,6 +32,7 @@ install -m 0755 bin/steamroller %{buildroot}/opt/steamroller/bin/steamroller
 install -m 0755 scripts/render_summary.py %{buildroot}/opt/steamroller/scripts/render_summary.py
 install -m 0755 scripts/show_config.py %{buildroot}/opt/steamroller/scripts/show_config.py
 install -m 0755 scripts/validate_config.py %{buildroot}/opt/steamroller/scripts/validate_config.py
+install -m 0755 scripts/list_reports.py %{buildroot}/opt/steamroller/scripts/list_reports.py
 install -m 0644 VERSION README.md %{buildroot}/opt/steamroller/
 cp -a playbooks/. %{buildroot}/opt/steamroller/playbooks/
 cp -a roles/. %{buildroot}/opt/steamroller/roles/

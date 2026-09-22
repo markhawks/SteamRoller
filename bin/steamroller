@@ -48,12 +48,7 @@ if [[ "$action" == "version" ]]; then
 fi
 
 if [[ "$action" == "status" ]]; then
-    if [[ ! -d "$REPORT_ROOT" ]]; then
-        printf 'No reports found in %s\n' "$REPORT_ROOT"
-        exit 0
-    fi
-    find "$REPORT_ROOT" -mindepth 2 -maxdepth 2 -type d -printf '%P\n' | sort -r
-    exit 0
+    exec python3 "${APP_ROOT}/scripts/list_reports.py" --report-root "$REPORT_ROOT"
 fi
 
 if [[ "$action" == "config" && $# -eq 0 ]]; then

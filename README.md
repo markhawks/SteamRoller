@@ -41,7 +41,13 @@ Edit `inventories/dev/hosts.yml`, then run:
 ./bin/steamroller doctor dev
 ./bin/steamroller connectivity dev
 ./bin/steamroller precheck dev
+./bin/steamroller status
 ```
+
+`steamroller status` displays one row per execution with the local execution
+time, immutable run ID, operation type, and directory contents. Connectivity
+runs and full precheck reports are identified explicitly even when the remote
+hostname uses different capitalization between Ansible discovery methods.
 
 Display the effective, non-sensitive defaults for an environment:
 

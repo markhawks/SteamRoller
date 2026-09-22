@@ -20,6 +20,7 @@ required_files=(
     scripts/render_summary.py
     scripts/show_config.py
     scripts/validate_config.py
+    scripts/list_reports.py
     packaging/rpm/steamroller.spec
 )
 
@@ -48,5 +49,6 @@ bash -n bin/steamroller
 python3 -m py_compile scripts/render_summary.py
 python3 -m py_compile scripts/show_config.py
 python3 -m py_compile scripts/validate_config.py
+python3 -m py_compile scripts/list_reports.py
 
 printf 'Static checks passed.\n'
