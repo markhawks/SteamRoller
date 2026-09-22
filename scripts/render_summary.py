@@ -265,10 +265,18 @@ def main() -> int:
             registration_result = "PASS" if registration_status == "Registered" else "FAIL"
             repositories = satellite.get("enabled_repositories", []) or []
             repositories_enabled = bool(satellite.get("all_repositories_enabled", False))
+            consumer_matches = bool(satellite.get("consumer_name_matches", False))
+            consumer_result = "PASS" if consumer_matches else "FAIL"
+            validation_mode = satellite.get("consumer_validation_mode", "unknown")
             print()
             print(f"{palette.bold}{server}{palette.reset}")
             print(f"  Satellite server: {satellite.get('server') or '-'}")
-            print(f"  Consumer name: {satellite.get('consumer_name') or '-'}")
+            print(
+                f"  Consumer name found: {satellite.get('consumer_name') or '-'} "
+                f"[{palette.status(consumer_result)}]"
+            )
+            print(f"  Expected consumer name: {satellite.get('expected_consumer_name') or '-'}")
+            print(f"  Consumer validation: {validation_mode}")
             print(f"  Organization: {satellite.get('organization') or '-'}")
             print(f"  Environment name: {satellite.get('environment_name') or '-'}")
             print(f"  Lifecycle environment: {satellite.get('lifecycle_environment') or '-'}")

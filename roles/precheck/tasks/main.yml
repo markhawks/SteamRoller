@@ -692,6 +692,16 @@
       satellite:
         server: "{{ steamroller_satellite_server }}"
         consumer_name: "{{ steamroller_consumer_name }}"
+        expected_consumer_name: >-
+          {{ steamroller_expected_consumer_name
+             if steamroller_expected_consumer_name | length > 0 else ansible_fqdn }}
+        consumer_validation_mode: >-
+          {{ 'CONFIGURED' if steamroller_expected_consumer_name | length > 0
+             else 'AUTO_HOST_FQDN' }}
+        consumer_name_matches: >-
+          {{ steamroller_consumer_name | lower ==
+             ((steamroller_expected_consumer_name
+               if steamroller_expected_consumer_name | length > 0 else ansible_fqdn) | lower) }}
         organization: "{{ steamroller_organization }}"
         environment_name: "{{ steamroller_environment_name }}"
         lifecycle_environment: "{{ steamroller_lifecycle_environment }}"
@@ -800,6 +810,9 @@
         SATELLITE DETAILS
         Server: {{ steamroller_satellite_server }}
         Consumer name: {{ steamroller_consumer_name }}
+        Expected consumer name: {{ steamroller_expected_consumer_name if steamroller_expected_consumer_name | length > 0 else ansible_fqdn }}
+        Consumer validation mode: {{ 'CONFIGURED' if steamroller_expected_consumer_name | length > 0 else 'AUTO_HOST_FQDN' }}
+        Consumer name matches: {{ steamroller_consumer_name | lower == ((steamroller_expected_consumer_name if steamroller_expected_consumer_name | length > 0 else ansible_fqdn) | lower) }}
         Organization: {{ steamroller_organization }}
         Environment name: {{ steamroller_environment_name }}
         Lifecycle environment: {{ steamroller_lifecycle_environment }}

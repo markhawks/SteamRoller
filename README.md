@@ -98,6 +98,8 @@ Lifecycle Environment, Content View, and enabled repository IDs. The terminal
 report includes a dedicated `SATELLITE DETAILS` section after `HOST DETAILS`.
 If no expected consumer name is configured, each consumer is validated against
 that host's discovered FQDN, which supports inventories containing many hosts.
+The discovered name, expected name, validation mode, and result remain visible
+in `SATELLITE DETAILS` in both automatic and explicitly configured modes.
 
 The summary contains one row for every inventory host. A host that is
 unreachable or does not produce a report is displayed as `FAIL`, followed by
