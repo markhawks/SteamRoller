@@ -32,6 +32,7 @@ usage() {
         '       steamroller connectivity ENVIRONMENT [--quiet] [--ssh-key PATH] [ansible-playbook options]' \
         '       steamroller repo-off ENVIRONMENT [--quiet] [--ssh-key PATH] [ansible-playbook options]' \
         '       steamroller config [ENVIRONMENT]' \
+        '       steamroller inventory {create|add|del|list} [options]' \
         '       steamroller doctor ENVIRONMENT' \
         '       steamroller status' \
         '       steamroller version'
@@ -49,6 +50,11 @@ fi
 
 if [[ "$action" == "status" ]]; then
     exec python3 "${APP_ROOT}/scripts/list_reports.py" --report-root "$REPORT_ROOT"
+fi
+
+if [[ "$action" == "inventory" ]]; then
+    exec python3 "${APP_ROOT}/scripts/manage_inventory.py" \
+        --inventory-root "${CONFIG_ROOT}/inventories" "$@"
 fi
 
 if [[ "$action" == "config" && $# -eq 0 ]]; then

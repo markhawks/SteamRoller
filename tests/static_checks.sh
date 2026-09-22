@@ -22,6 +22,7 @@ required_files=(
     scripts/show_config.py
     scripts/validate_config.py
     scripts/list_reports.py
+    scripts/manage_inventory.py
     scripts/test_satellite_check.sh
     packaging/rpm/steamroller.spec
 )
@@ -53,5 +54,7 @@ python3 -m py_compile scripts/render_summary.py
 python3 -m py_compile scripts/show_config.py
 python3 -m py_compile scripts/validate_config.py
 python3 -m py_compile scripts/list_reports.py
+python3 -m py_compile scripts/manage_inventory.py
+python3 -m unittest tests/test_inventory_manager.py
 
 printf 'Static checks passed.\n'

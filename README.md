@@ -31,13 +31,26 @@ custom files found, local backup, remote quarantine, and files actually moved.
 
 ## Development usage
 
-Create a local inventory, which is intentionally ignored by Git:
+Create an inventory by resolving and pinging every host before writing it:
 
 ```bash
-cp inventories/dev/hosts.yml.example inventories/dev/hosts.yml
+./bin/steamroller inventory create -i AlfrescoDev \
+  -h alfresco01.example.net -h alfresco02.example.net
 ```
 
-Edit `inventories/dev/hosts.yml`, then run:
+SSH defaults to port `22` and user `root`; override them with `-p` and `-u`:
+
+```bash
+./bin/steamroller inventory add -i AlfrescoDev \
+  -h alfresco03.example.net -p 2222 -u operator
+./bin/steamroller inventory del -i AlfrescoDev \
+  -h alfresco02.example.net -h alfresco03.example.net
+./bin/steamroller inventory list
+./bin/steamroller inventory list AlfrescoDev
+```
+
+For `create` and `add`, all hosts must answer ping before the inventory is
+written; a failure leaves the existing data unchanged. Then run:
 
 ```bash
 ./bin/steamroller doctor dev
