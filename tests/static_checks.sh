@@ -26,6 +26,7 @@ required_files=(
     scripts/test_satellite_check.sh
     setup/manual/install-source-path.sh
     setup/README.md
+    completions/steamroller.bash
     packaging/rpm/steamroller.spec
 )
 
@@ -55,6 +56,7 @@ grep -q -- '-q|--quiet' bin/steamroller
 bash -n bin/steamroller
 bash -n scripts/test_satellite_check.sh
 bash -n setup/manual/install-source-path.sh
+bash -n completions/steamroller.bash
 python3 -m py_compile scripts/render_summary.py
 python3 -m py_compile scripts/show_config.py
 python3 -m py_compile scripts/validate_config.py

@@ -29,6 +29,7 @@ install -d %{buildroot}%{_sysconfdir}/steamroller/inventories/dev
 install -d %{buildroot}%{_localstatedir}/lib/steamroller/reports
 install -d %{buildroot}%{_localstatedir}/log/steamroller
 install -d %{buildroot}%{_bindir}
+install -d %{buildroot}%{_datadir}/bash-completion/completions
 
 install -m 0755 bin/steamroller %{buildroot}/opt/steamroller/bin/steamroller
 install -m 0755 scripts/render_summary.py %{buildroot}/opt/steamroller/scripts/render_summary.py
@@ -37,6 +38,8 @@ install -m 0755 scripts/validate_config.py %{buildroot}/opt/steamroller/scripts/
 install -m 0755 scripts/list_reports.py %{buildroot}/opt/steamroller/scripts/list_reports.py
 install -m 0755 scripts/manage_inventory.py %{buildroot}/opt/steamroller/scripts/manage_inventory.py
 install -m 0644 VERSION README.md %{buildroot}/opt/steamroller/
+install -m 0644 completions/steamroller.bash \
+    %{buildroot}%{_datadir}/bash-completion/completions/steamroller
 cp -a playbooks/. %{buildroot}/opt/steamroller/playbooks/
 cp -a roles/. %{buildroot}/opt/steamroller/roles/
 install -m 0644 config/ansible.cfg %{buildroot}%{_sysconfdir}/steamroller/ansible.cfg
@@ -50,6 +53,7 @@ ln -s /opt/steamroller/bin/steamroller %{buildroot}%{_bindir}/steamroller
 %doc README.md
 /opt/steamroller
 %{_bindir}/steamroller
+%{_datadir}/bash-completion/completions/steamroller
 %dir %{_sysconfdir}/steamroller
 %dir %{_sysconfdir}/steamroller/inventories
 %dir %{_sysconfdir}/steamroller/inventories/dev

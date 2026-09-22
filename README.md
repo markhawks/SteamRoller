@@ -83,7 +83,9 @@ steamroller version
 ```
 
 The installer is safe to run again after moving or reinstalling the source
-checkout. See `setup/README.md` for removal and advanced options.
+checkout. It also enables Bash completion: type `steamroller` followed by
+`Tab` twice to display commands and context-sensitive options. See
+`setup/README.md` for removal and advanced options.
 
 Runtime reports and real customer inventories must never be committed. Clone
 the repository at each customer site, create the local inventory from the

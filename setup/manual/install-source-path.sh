@@ -55,6 +55,11 @@ steamroller_bin="${project_root}/bin/steamroller"
     printf 'SteamRoller executable not found: %s\n' "$steamroller_bin" >&2
     exit 2
 }
+completion_file="${project_root}/completions/steamroller.bash"
+[[ -r "$completion_file" ]] || {
+    printf 'SteamRoller Bash completion not found: %s\n' "$completion_file" >&2
+    exit 2
+}
 
 if [[ "$bashrc_file" == "/root/.bashrc" && $EUID -ne 0 ]]; then
     printf 'Run this installer as root to modify /root/.bashrc.\n' >&2
@@ -92,6 +97,7 @@ if [[ "$remove" == false ]]; then
     {
         printf '\n%s\n' "$begin_marker"
         printf 'export PATH="%s/bin:$PATH"\n' "$project_root"
+        printf 'source "%s"\n' "$completion_file"
         printf '%s\n' "$end_marker"
     } >> "$temporary_file"
 fi
@@ -110,6 +116,7 @@ else
     printf 'Shell configuration: %s\n' "$bashrc_file"
     printf 'Backup: %s\n' "$backup_file"
     printf 'Detected version: %s\n' "$version"
+    printf 'Bash completion: enabled\n'
     printf '\nActivate it in the current shell with:\n'
     printf '  source %s\n' "$bashrc_file"
 fi

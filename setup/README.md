@@ -16,6 +16,8 @@ steamroller version
 Running the installer again updates the managed block without duplicating it.
 The previous `.bashrc` is preserved with a timestamped
 `.steamroller.bak.TIMESTAMP` suffix.
+The same managed block loads Bash completion for commands, inventories,
+inventory operations, common options, SSH key paths, and hostnames.
 
 To remove only the managed SteamRoller entry:
 
