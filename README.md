@@ -80,6 +80,16 @@ The equivalent environment variable is `STEAMROLLER_SSH_KEY`. The command-line
 option takes precedence over the environment variable. Private keys must stay
 outside the repository.
 
+An experimental read-only Satellite discovery check is available before its
+integration into the Ansible precheck:
+
+```bash
+sudo ./scripts/test_satellite_check.sh
+```
+
+Optional expected name, environment, and repository IDs can be supplied as
+positional arguments.
+
 The summary contains one row for every inventory host. A host that is
 unreachable or does not produce a report is displayed as `FAIL`, followed by
 its error details. The command returns a non-zero exit status when any host

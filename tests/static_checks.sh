@@ -21,6 +21,7 @@ required_files=(
     scripts/show_config.py
     scripts/validate_config.py
     scripts/list_reports.py
+    scripts/test_satellite_check.sh
     packaging/rpm/steamroller.spec
 )
 
@@ -46,6 +47,7 @@ grep -q -- '--private-key' bin/steamroller
 grep -q -- '--ssh-key' bin/steamroller
 
 bash -n bin/steamroller
+bash -n scripts/test_satellite_check.sh
 python3 -m py_compile scripts/render_summary.py
 python3 -m py_compile scripts/show_config.py
 python3 -m py_compile scripts/validate_config.py
