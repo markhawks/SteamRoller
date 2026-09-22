@@ -34,6 +34,10 @@ laboratory.
 ./bin/steamroller status
 ```
 
+A dedicated private key can be selected at runtime with `--ssh-key PATH` or
+the `STEAMROLLER_SSH_KEY` environment variable. The key is validated locally
+and is never copied into reports or the repository.
+
 Normal mode displays Ansible task progress and the final fleet report. Quiet
 mode suppresses task progress but always displays the final report and any
 blocking findings.

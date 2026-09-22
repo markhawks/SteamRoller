@@ -41,6 +41,8 @@ grep -q 'steamroller_registration_mode: redhat_cdn' inventories/dev/group_vars/a
 grep -q 'steamroller_cluster_check_enabled: false' inventories/dev/group_vars/all.yml
 grep -q '/opt/steamroller' packaging/rpm/steamroller.spec
 grep -q '%config(noreplace)' packaging/rpm/steamroller.spec
+grep -q -- '--private-key' bin/steamroller
+grep -q -- '--ssh-key' bin/steamroller
 
 bash -n bin/steamroller
 python3 -m py_compile scripts/render_summary.py

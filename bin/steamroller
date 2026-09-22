@@ -28,9 +28,9 @@ readonly STEAMROLLER_ANSIBLE_CONFIG="${ANSIBLE_CONFIG:-${DEFAULT_ANSIBLE_CONFIG}
 
 usage() {
     printf '%s\n' \
-        'Usage: steamroller precheck ENVIRONMENT [--quiet] [ansible-playbook options]' \
-        '       steamroller connectivity ENVIRONMENT [--quiet] [ansible-playbook options]' \
-        '       steamroller repo-off ENVIRONMENT [--quiet] [ansible-playbook options]' \
+        'Usage: steamroller precheck ENVIRONMENT [--quiet] [--ssh-key PATH] [ansible-playbook options]' \
+        '       steamroller connectivity ENVIRONMENT [--quiet] [--ssh-key PATH] [ansible-playbook options]' \
+        '       steamroller repo-off ENVIRONMENT [--quiet] [--ssh-key PATH] [ansible-playbook options]' \
         '       steamroller config [ENVIRONMENT]' \
         '       steamroller doctor ENVIRONMENT' \
         '       steamroller status' \
@@ -126,14 +126,37 @@ case "$action" in
 esac
 
 quiet=false
+ssh_key="${STEAMROLLER_SSH_KEY:-}"
 ansible_options=()
-for option in "$@"; do
-    if [[ "$option" == "--quiet" ]]; then
-        quiet=true
-    else
-        ansible_options+=("$option")
-    fi
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --quiet)
+            quiet=true
+            shift
+            ;;
+        --ssh-key)
+            [[ $# -ge 2 ]] || {
+                printf '%s\n' 'Missing path after --ssh-key.' >&2
+                exit 2
+            }
+            ssh_key="$2"
+            shift 2
+            ;;
+        --ssh-key=*)
+            ssh_key="${1#--ssh-key=}"
+            shift
+            ;;
+        *)
+            ansible_options+=("$1")
+            shift
+            ;;
+    esac
 done
+
+if [[ -n "$ssh_key" && ( ! -f "$ssh_key" || ! -r "$ssh_key" ) ]]; then
+    printf 'SSH private key is not a readable file: %s\n' "$ssh_key" >&2
+    exit 2
+fi
 
 run_id="$(date -u +%Y%m%dT%H%M%SZ)"
 output_log="$(mktemp "/tmp/steamroller-${action}.XXXXXX")"
@@ -145,8 +168,11 @@ ansible_command=(ansible-playbook
     "${APP_ROOT}/playbooks/${playbook}" \
     -e "@${SETTINGS_FILE}" \
     -e "steamroller_report_root=${REPORT_ROOT}" \
-    -e "steamroller_run_id=${run_id}" \
-    "${ansible_options[@]}")
+    -e "steamroller_run_id=${run_id}")
+if [[ -n "$ssh_key" ]]; then
+    ansible_command+=(--private-key "$ssh_key")
+fi
+ansible_command+=("${ansible_options[@]}")
 
 set +o errexit
 if [[ "$quiet" == true ]]; then

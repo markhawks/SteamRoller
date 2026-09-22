@@ -63,6 +63,17 @@ suppresses task progress but always shows the same final summary:
 ./bin/steamroller precheck dev --quiet
 ```
 
+Use a non-default SSH private key without storing its path in the inventory:
+
+```bash
+./bin/steamroller connectivity dev --ssh-key /secure/path/steamroller_ed25519
+./bin/steamroller precheck dev --quiet --ssh-key /secure/path/steamroller_ed25519
+```
+
+The equivalent environment variable is `STEAMROLLER_SSH_KEY`. The command-line
+option takes precedence over the environment variable. Private keys must stay
+outside the repository.
+
 The summary contains one row for every inventory host. A host that is
 unreachable or does not produce a report is displayed as `FAIL`, followed by
 its error details. The command returns a non-zero exit status when any host
