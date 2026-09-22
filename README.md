@@ -73,6 +73,18 @@ Display the effective, non-sensitive defaults for an environment:
 The wrapper automatically recognizes a source checkout. After RPM installation
 the same commands use `/opt/steamroller` and `/etc/steamroller`.
 
+Install the current source checkout in root's command `PATH` so that the
+`./bin/` prefix is no longer required:
+
+```bash
+./setup/manual/install-source-path.sh
+source /root/.bashrc
+steamroller version
+```
+
+The installer is safe to run again after moving or reinstalling the source
+checkout. See `setup/README.md` for removal and advanced options.
+
 Runtime reports and real customer inventories must never be committed. Clone
 the repository at each customer site, create the local inventory from the
 example, and keep customer-specific changes on a dedicated development branch.

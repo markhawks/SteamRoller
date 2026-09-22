@@ -24,6 +24,8 @@ required_files=(
     scripts/list_reports.py
     scripts/manage_inventory.py
     scripts/test_satellite_check.sh
+    setup/manual/install-source-path.sh
+    setup/README.md
     packaging/rpm/steamroller.spec
 )
 
@@ -47,9 +49,11 @@ grep -q '/opt/steamroller' packaging/rpm/steamroller.spec
 grep -q '%config(noreplace)' packaging/rpm/steamroller.spec
 grep -q -- '--private-key' bin/steamroller
 grep -q -- '--ssh-key' bin/steamroller
+[[ -x setup/manual/install-source-path.sh ]]
 
 bash -n bin/steamroller
 bash -n scripts/test_satellite_check.sh
+bash -n setup/manual/install-source-path.sh
 python3 -m py_compile scripts/render_summary.py
 python3 -m py_compile scripts/show_config.py
 python3 -m py_compile scripts/validate_config.py
