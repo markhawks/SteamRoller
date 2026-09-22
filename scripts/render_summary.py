@@ -174,6 +174,36 @@ def main() -> int:
         for finding in warnings:
             print(f"  {palette.yellow}[WARNING]{palette.reset} {finding}")
 
+    quarantine_rows = [
+        row for row in rows if row.get("operation") == "repo_quarantine"
+    ]
+    if quarantine_rows:
+        print()
+        print(f"{palette.bold}REPOSITORY QUARANTINE DETAILS{palette.reset}")
+        for row in quarantine_rows:
+            server = row.get("fqdn") or row.get("host")
+            files = list(row.get("quarantined_files", []) or [])
+            allowed_files = list(
+                row.get("allowed_repository_files", ["redhat.repo"]) or []
+            )
+            local_backup = row.get("local_backup_directory")
+            if not local_backup and row.get("report_dir") not in (None, "", "-"):
+                local_backup = str(Path(str(row["report_dir"])) / "repo-backup")
+            print()
+            print(f"{palette.bold}{server}{palette.reset} [{palette.status(str(row.get('status', 'FAIL')))}]")
+            print(f"  Scanned directory: {row.get('source_directory', '/etc/yum.repos.d')}")
+            print(f"  Allowed files left in place: {', '.join(allowed_files) or 'none'}")
+            print(f"  Custom .repo files found: {len(files)}")
+            print(f"  Local backup: {local_backup or '-'}")
+            print(f"  Remote quarantine: {row.get('quarantine_directory') or '-'}")
+            if files:
+                print("  Files backed up and moved:")
+                for filename in files:
+                    print(f"    [{palette.status('PASS')}] {filename}")
+            else:
+                print("  Files backed up and moved: none (no action required)")
+            print(f"  Report: {row.get('report_dir', '-')}")
+
     detailed_rows = [row for row in rows if row.get("os") or row.get("disk_space")]
     if detailed_rows:
         print()

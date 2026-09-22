@@ -77,7 +77,11 @@
       timestamp_utc: "{{ ansible_date_time.iso8601 }}"
       status: PASS
       operation: repo_quarantine
+      source_directory: /etc/yum.repos.d
       quarantine_directory: "{{ steamroller_repo_quarantine_dir }}"
+      local_backup_directory: "{{ steamroller_local_run_dir }}/repo-backup"
+      allowed_repository_files: "{{ steamroller_allowed_repo_files }}"
+      discovered_file_count: "{{ steamroller_custom_repo_scan.matched | int }}"
       quarantined_files: >-
         {{ steamroller_custom_repo_scan.files | map(attribute='path') |
            map('basename') | sort | list }}

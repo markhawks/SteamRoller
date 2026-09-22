@@ -26,6 +26,8 @@ Precheck never edits repository configuration. An operator may explicitly run
 `steamroller repo-off ENVIRONMENT` to back up custom files into the protected
 local report directory and then move them on the target beneath
 `/etc/yum.repos.d/SteamRoller-RepoOff/RUN_ID/`.
+Its final terminal summary lists the scanned directory, files left in place,
+custom files found, local backup, remote quarantine, and files actually moved.
 
 ## Development usage
 
