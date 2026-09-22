@@ -14,7 +14,7 @@ The current implementation is **Phase 1 only**:
 
 - connectivity and privilege validation;
 - read-only RHEL 9 prechecks;
-- direct Red Hat CDN registration and repository checks;
+- direct Red Hat CDN and Red Hat Satellite registration and repository checks;
 - persistent per-host text and JSON evidence.
 
 It does not update packages, reboot hosts, modify subscriptions, or perform
@@ -80,8 +80,8 @@ The equivalent environment variable is `STEAMROLLER_SSH_KEY`. The command-line
 option takes precedence over the environment variable. Private keys must stay
 outside the repository.
 
-An experimental read-only Satellite discovery check is available before its
-integration into the Ansible precheck:
+The standalone read-only Satellite discovery script remains available for
+quick diagnostics:
 
 ```bash
 sudo ./scripts/test_satellite_check.sh
@@ -89,6 +89,15 @@ sudo ./scripts/test_satellite_check.sh
 
 Optional expected name, environment, and repository IDs can be supplied as
 positional arguments.
+
+For Satellite-managed environments, set `steamroller_registration_mode` to
+`satellite` and configure expected values in the optional environment file
+`inventories/ENVIRONMENT/steamroller.yml` (create it from the example).
+Precheck then validates the Satellite server, consumer name, Organization,
+Lifecycle Environment, Content View, and enabled repository IDs. The terminal
+report includes a dedicated `SATELLITE DETAILS` section after `HOST DETAILS`.
+If no expected consumer name is configured, each consumer is validated against
+that host's discovered FQDN, which supports inventories containing many hosts.
 
 The summary contains one row for every inventory host. A host that is
 unreachable or does not produce a report is displayed as `FAIL`, followed by

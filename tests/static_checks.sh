@@ -10,6 +10,7 @@ required_files=(
     ansible.cfg
     bin/steamroller
     inventories/dev/hosts.yml
+    inventories/dev/steamroller.yml.example
     playbooks/00-connectivity.yml
     playbooks/10-precheck.yml
     playbooks/15-repo-off.yml

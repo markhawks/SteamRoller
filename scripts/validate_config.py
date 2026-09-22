@@ -19,14 +19,16 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--inventory", required=True)
     parser.add_argument("--settings", required=True)
+    parser.add_argument("--environment-settings")
     parser.add_argument("--report-root", required=True)
     args = parser.parse_args()
     command = [
         "ansible-inventory", "-i", args.inventory,
         "-e", f"@{args.settings}",
-        "-e", f"steamroller_report_root={args.report_root}",
-        "--list",
     ]
+    if args.environment_settings:
+        command.extend(["-e", f"@{args.environment_settings}"])
+    command.extend(["-e", f"steamroller_report_root={args.report_root}", "--list"])
     try:
         result = subprocess.run(command, check=True, capture_output=True, text=True)
         hostvars = json.loads(result.stdout).get("_meta", {}).get("hostvars", {})
@@ -50,6 +52,7 @@ def main() -> int:
         "steamroller_uptime_high_days": 180,
         "steamroller_uptime_critical_days": 365,
         "steamroller_custom_repo_policy": "fail",
+        "steamroller_registration_mode": "redhat_cdn",
     }
     for host, variables in hostvars.items():
         values = {key: variables.get(key, value) for key, value in defaults.items()}
@@ -79,6 +82,8 @@ def main() -> int:
             errors.append(f"{host}: uptime thresholds must be strictly increasing")
         if values["steamroller_custom_repo_policy"] not in {"allow", "warning", "fail"}:
             errors.append(f"{host}: custom repository policy must be allow, warning, or fail")
+        if values["steamroller_registration_mode"] not in {"redhat_cdn", "satellite"}:
+            errors.append(f"{host}: registration mode must be redhat_cdn or satellite")
         for key in LIST_FIELDS:
             if not isinstance(variables.get(key, []), list):
                 errors.append(f"{host}: {key} must be a list")

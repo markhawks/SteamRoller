@@ -1,0 +1,8 @@
+---
+steamroller_registration_mode: redhat_cdn
+steamroller_expected_satellite_server: ""
+steamroller_expected_consumer_name: ""
+steamroller_expected_organization: ""
+steamroller_expected_lifecycle_environment: ""
+steamroller_expected_content_view: ""
+steamroller_required_repositories: []

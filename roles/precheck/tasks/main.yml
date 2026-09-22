@@ -63,6 +63,18 @@
   register: steamroller_subscription_status
   failed_when: false
 
+- name: Read subscription-manager configuration
+  ansible.builtin.command: subscription-manager config --list
+  changed_when: false
+  register: steamroller_subscription_config
+  failed_when: false
+
+- name: Collect subscription-manager enabled repositories
+  ansible.builtin.command: subscription-manager repos --list-enabled
+  changed_when: false
+  register: steamroller_subscription_repositories
+  failed_when: false
+
 - name: Detect active package-manager processes
   ansible.builtin.command: pgrep -x dnf yum rpm
   changed_when: false
@@ -203,6 +215,42 @@
           (((steamroller_kernel_core_updates | first).split())[0].split('.', 1))[1])
          if steamroller_kernel_core_updates | length > 0 else '' }}
 
+- name: Parse subscription and Satellite identity
+  ansible.builtin.set_fact:
+    steamroller_consumer_name: >-
+      {{ steamroller_subscription_identity.stdout_lines | default([]) |
+         select('match', '^name:') | map('regex_replace', '^name:[ ]*', '') | first | default('') }}
+    steamroller_organization: >-
+      {{ steamroller_subscription_identity.stdout_lines | default([]) |
+         select('match', '^org name:') | map('regex_replace', '^org name:[ ]*', '') | first | default('') }}
+    steamroller_environment_name: >-
+      {{ steamroller_subscription_identity.stdout_lines | default([]) |
+         select('match', '^environment name:') | map('regex_replace', '^environment name:[ ]*', '') | first | default('') }}
+    steamroller_registration_status: >-
+      {{ steamroller_subscription_status.stdout_lines | default([]) |
+         select('match', '^Overall Status:') | map('regex_replace', '^Overall Status:[ ]*', '') | first | default('') }}
+    steamroller_satellite_server: >-
+      {{ steamroller_subscription_config.stdout_lines | default([]) |
+         select('match', '^[ ]*hostname[ ]*=') |
+         map('regex_replace', '^[ ]*hostname[ ]*=[ ]*', '') | first | default('') }}
+    steamroller_enabled_repo_ids: >-
+      {{ steamroller_subscription_repositories.stdout_lines | default([]) |
+         select('match', '^Repo ID:') | map('regex_replace', '^Repo ID:[ ]*', '') | unique | sort | list }}
+    steamroller_repo_enabled_values: >-
+      {{ steamroller_subscription_repositories.stdout_lines | default([]) |
+         select('match', '^Enabled:') | map('regex_replace', '^Enabled:[ ]*', '') | list }}
+
+- name: Parse Satellite lifecycle environment and content view
+  ansible.builtin.set_fact:
+    steamroller_lifecycle_environment: >-
+      {{ steamroller_environment_name.split('/', 1)[0]
+         if '/' in steamroller_environment_name else steamroller_environment_name }}
+    steamroller_content_view: >-
+      {{ steamroller_environment_name.split('/', 1)[1]
+         if '/' in steamroller_environment_name else '' }}
+    steamroller_non_enabled_repo_values: >-
+      {{ steamroller_repo_enabled_values | reject('equalto', '1') | list }}
+
 - name: Classify configured repository files
   ansible.builtin.set_fact:
     steamroller_repo_files: >-
@@ -325,6 +373,19 @@
       - name: redhat_registration
         status: "{{ 'PASS' if steamroller_subscription_identity.rc == 0 else 'FAIL' }}"
         duration: "{{ steamroller_subscription_identity.delta | default('n/a') }}"
+      - name: satellite_registration
+        status: >-
+          {{ 'SKIPPED' if steamroller_registration_mode != 'satellite'
+             else ('PASS' if (steamroller_subscription_identity.rc == 0 and
+                              steamroller_subscription_status.rc == 0 and
+                              steamroller_subscription_config.rc == 0 and
+                              steamroller_subscription_repositories.rc == 0 and
+                              steamroller_registration_status == 'Registered' and
+                              steamroller_environment_name | length > 0 and
+                              steamroller_enabled_repo_ids | length > 0 and
+                              steamroller_non_enabled_repo_values | length == 0)
+                   else 'FAIL') }}
+        duration: "{{ steamroller_subscription_repositories.delta | default('n/a') }}"
       - name: repositories
         status: "{{ 'PASS' if steamroller_repositories.rc == 0 else 'FAIL' }}"
         duration: "{{ steamroller_repositories.delta | default('n/a') }}"
@@ -428,6 +489,64 @@
     - steamroller_registration_mode == 'redhat_cdn'
     - steamroller_subscription_identity.rc != 0
 
+- name: Add incomplete Satellite registration failures
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + [item.message] }}"
+  loop:
+    - failed: "{{ steamroller_subscription_identity.rc != 0 }}"
+      message: Satellite consumer identity is unavailable
+    - failed: "{{ steamroller_registration_status != 'Registered' }}"
+      message: Satellite registration status is not Registered
+    - failed: "{{ steamroller_satellite_server | length == 0 }}"
+      message: Satellite server hostname is unavailable
+    - failed: "{{ steamroller_environment_name | length == 0 }}"
+      message: Satellite environment name is unavailable
+    - failed: "{{ steamroller_enabled_repo_ids | length == 0 }}"
+      message: Satellite has no enabled repositories
+    - failed: "{{ steamroller_non_enabled_repo_values | length > 0 }}"
+      message: A repository returned by list-enabled does not have Enabled=1
+  loop_control:
+    label: "{{ item.message }}"
+  when:
+    - steamroller_registration_mode == 'satellite'
+    - item.failed | bool
+
+- name: Add Satellite expected-value failures
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + [item.message] }}"
+  loop:
+    - expected: "{{ steamroller_expected_satellite_server }}"
+      actual: "{{ steamroller_satellite_server }}"
+      message: "Unexpected Satellite server: {{ steamroller_satellite_server }}"
+    - expected: "{{ steamroller_expected_consumer_name }}"
+      actual: "{{ steamroller_consumer_name }}"
+      message: "Unexpected Satellite consumer name: {{ steamroller_consumer_name }}"
+    - expected: "{{ steamroller_expected_organization }}"
+      actual: "{{ steamroller_organization }}"
+      message: "Unexpected Satellite organization: {{ steamroller_organization }}"
+    - expected: "{{ steamroller_expected_lifecycle_environment }}"
+      actual: "{{ steamroller_lifecycle_environment }}"
+      message: "Unexpected Satellite lifecycle environment: {{ steamroller_lifecycle_environment }}"
+    - expected: "{{ steamroller_expected_content_view }}"
+      actual: "{{ steamroller_content_view }}"
+      message: "Unexpected Satellite content view: {{ steamroller_content_view }}"
+  loop_control:
+    label: "{{ item.message }}"
+  when:
+    - steamroller_registration_mode == 'satellite'
+    - item.expected | length > 0
+    - item.actual | lower != item.expected | lower
+
+- name: Add automatic Satellite consumer-name failure
+  ansible.builtin.set_fact:
+    steamroller_failures: >-
+      {{ steamroller_failures +
+         ['Satellite consumer name does not match host FQDN: ' + steamroller_consumer_name] }}
+  when:
+    - steamroller_registration_mode == 'satellite'
+    - steamroller_expected_consumer_name | length == 0
+    - steamroller_consumer_name | lower != ansible_fqdn | lower
+
 - name: Add repository failure
   ansible.builtin.set_fact:
     steamroller_failures: "{{ steamroller_failures + ['Enabled Red Hat repositories are unavailable'] }}"
@@ -437,7 +556,7 @@
   ansible.builtin.set_fact:
     steamroller_failures: "{{ steamroller_failures + ['Required repository is not enabled: ' + item] }}"
   loop: "{{ steamroller_required_repositories }}"
-  when: item not in steamroller_repositories.stdout
+  when: item not in steamroller_enabled_repo_ids
 
 - name: Add custom repository file failures
   ansible.builtin.set_fact:
@@ -570,6 +689,16 @@
       timestamp_utc: "{{ ansible_date_time.iso8601 }}"
       status: "{{ steamroller_precheck_status }}"
       registration_mode: "{{ steamroller_registration_mode }}"
+      satellite:
+        server: "{{ steamroller_satellite_server }}"
+        consumer_name: "{{ steamroller_consumer_name }}"
+        organization: "{{ steamroller_organization }}"
+        environment_name: "{{ steamroller_environment_name }}"
+        lifecycle_environment: "{{ steamroller_lifecycle_environment }}"
+        content_view: "{{ steamroller_content_view }}"
+        registration_status: "{{ steamroller_registration_status }}"
+        enabled_repositories: "{{ steamroller_enabled_repo_ids }}"
+        all_repositories_enabled: "{{ steamroller_non_enabled_repo_values | length == 0 }}"
       os:
         distribution: "{{ ansible_distribution }}"
         version: "{{ ansible_distribution_version }}"
@@ -668,6 +797,17 @@
         STATUS
         {{ steamroller_subscription_status.stdout | default('') }}
         {{ steamroller_subscription_status.stderr | default('') }}
+        SATELLITE DETAILS
+        Server: {{ steamroller_satellite_server }}
+        Consumer name: {{ steamroller_consumer_name }}
+        Organization: {{ steamroller_organization }}
+        Environment name: {{ steamroller_environment_name }}
+        Lifecycle environment: {{ steamroller_lifecycle_environment }}
+        Content view: {{ steamroller_content_view }}
+        Registration status: {{ steamroller_registration_status }}
+        Enabled repositories:
+        {% for repo_id in steamroller_enabled_repo_ids %}- {{ repo_id }}
+        {% endfor %}
     - name: repositories.txt
       content: |-
         ENABLED REPOSITORIES

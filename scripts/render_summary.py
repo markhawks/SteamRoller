@@ -252,6 +252,42 @@ def main() -> int:
                 print(f"  Failed services: none [{palette.status('PASS')}]")
             print(f"  Report: {row.get('report_dir', '-')}")
 
+    satellite_rows = [
+        row for row in rows if row.get("registration_mode") == "satellite"
+    ]
+    if satellite_rows:
+        print()
+        print(f"{palette.bold}SATELLITE DETAILS{palette.reset}")
+        for row in satellite_rows:
+            server = row.get("fqdn") or row.get("host")
+            satellite = row.get("satellite", {}) or {}
+            registration_status = str(satellite.get("registration_status", "unknown"))
+            registration_result = "PASS" if registration_status == "Registered" else "FAIL"
+            repositories = satellite.get("enabled_repositories", []) or []
+            repositories_enabled = bool(satellite.get("all_repositories_enabled", False))
+            print()
+            print(f"{palette.bold}{server}{palette.reset}")
+            print(f"  Satellite server: {satellite.get('server') or '-'}")
+            print(f"  Consumer name: {satellite.get('consumer_name') or '-'}")
+            print(f"  Organization: {satellite.get('organization') or '-'}")
+            print(f"  Environment name: {satellite.get('environment_name') or '-'}")
+            print(f"  Lifecycle environment: {satellite.get('lifecycle_environment') or '-'}")
+            print(f"  Content view: {satellite.get('content_view') or '-'}")
+            print(
+                f"  Registration status: {registration_status} "
+                f"[{palette.status(registration_result)}]"
+            )
+            print("  Enabled repositories:")
+            if repositories:
+                repository_result = "PASS" if repositories_enabled else "FAIL"
+                for repository in repositories:
+                    print(
+                        f"    [{palette.status(repository_result)}] "
+                        f"{repository} (Enabled=1)"
+                    )
+            else:
+                print(f"    [{palette.status('FAIL')}] none")
+
     print()
     passed = len(rows) - failed - warned
     print(

@@ -9,6 +9,11 @@ import sys
 
 FIELDS = (
     ("Registration mode", "steamroller_registration_mode", "redhat_cdn"),
+    ("Expected Satellite server", "steamroller_expected_satellite_server", ""),
+    ("Expected consumer name", "steamroller_expected_consumer_name", ""),
+    ("Expected organization", "steamroller_expected_organization", ""),
+    ("Expected lifecycle environment", "steamroller_expected_lifecycle_environment", ""),
+    ("Expected content view", "steamroller_expected_content_view", ""),
     ("Cluster check enabled", "steamroller_cluster_check_enabled", False),
     ("Report root", "steamroller_report_root", "reports"),
     ("Disk usage warning", "steamroller_disk_warning_percent", 80, "%"),
@@ -40,6 +45,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--inventory", required=True)
     parser.add_argument("--settings", required=True)
+    parser.add_argument("--environment-settings")
     parser.add_argument("--environment", required=True)
     parser.add_argument("--report-root", required=True)
     args = parser.parse_args()
@@ -50,10 +56,10 @@ def main() -> int:
         args.inventory,
         "-e",
         f"@{args.settings}",
-        "-e",
-        f"steamroller_report_root={args.report_root}",
-        "--list",
     ]
+    if args.environment_settings:
+        command.extend(["-e", f"@{args.environment_settings}"])
+    command.extend(["-e", f"steamroller_report_root={args.report_root}", "--list"])
     try:
         result = subprocess.run(command, check=True, capture_output=True, text=True)
         inventory = json.loads(result.stdout)
@@ -83,6 +89,8 @@ def main() -> int:
 
     print()
     print(f"Settings file: {args.settings}")
+    if args.environment_settings:
+        print(f"Environment settings: {args.environment_settings}")
     print(f"Inventory file: {args.inventory}")
     return 0
 

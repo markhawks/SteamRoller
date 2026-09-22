@@ -69,14 +69,20 @@ shift
 }
 
 inventory="${CONFIG_ROOT}/inventories/${environment}/hosts.yml"
+environment_settings="${CONFIG_ROOT}/inventories/${environment}/steamroller.yml"
 [[ -r "$inventory" ]] || {
     printf 'Inventory is not readable: %s\n' "$inventory" >&2
     exit 2
 }
 
+settings_options=(--settings "$SETTINGS_FILE")
+if [[ -r "$environment_settings" ]]; then
+    settings_options+=(--environment-settings "$environment_settings")
+fi
+
 python3 "${APP_ROOT}/scripts/validate_config.py" \
     --inventory "$inventory" \
-    --settings "$SETTINGS_FILE" \
+    "${settings_options[@]}" \
     --report-root "$REPORT_ROOT"
 
 if [[ "$action" == "config" ]]; then
@@ -84,7 +90,7 @@ if [[ "$action" == "config" ]]; then
     export ANSIBLE_CONFIG="$STEAMROLLER_ANSIBLE_CONFIG"
     exec python3 "${APP_ROOT}/scripts/show_config.py" \
         --inventory "$inventory" \
-        --settings "$SETTINGS_FILE" \
+        "${settings_options[@]}" \
         --environment "$environment" \
         --report-root "$REPORT_ROOT"
 fi
@@ -161,8 +167,12 @@ export ANSIBLE_CONFIG="$STEAMROLLER_ANSIBLE_CONFIG"
 ansible_command=(ansible-playbook
     -i "$inventory" \
     "${APP_ROOT}/playbooks/${playbook}" \
-    -e "@${SETTINGS_FILE}" \
-    -e "steamroller_report_root=${REPORT_ROOT}" \
+    -e "@${SETTINGS_FILE}")
+if [[ -r "$environment_settings" ]]; then
+    ansible_command+=(-e "@${environment_settings}")
+fi
+ansible_command+=(
+    -e "steamroller_report_root=${REPORT_ROOT}"
     -e "steamroller_run_id=${run_id}")
 if [[ -n "$ssh_key" ]]; then
     ansible_command+=(--private-key "$ssh_key")

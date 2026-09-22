@@ -3,6 +3,7 @@
 
 # Real inventories are local to each installation
 /inventories/*/hosts.yml
+/inventories/*/steamroller.yml
 /inventories/*/host_vars/
 /inventories/*/group_vars/vault.yml
 

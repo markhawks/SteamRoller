@@ -42,6 +42,20 @@ SUBSCRIPTION STATUS
 {{ steamroller_subscription_status.stdout | default('') }}
 {{ steamroller_subscription_status.stderr | default('') }}
 
+SATELLITE DETAILS
+-----------------
+Mode: {{ steamroller_registration_mode }}
+Server: {{ steamroller_satellite_server }}
+Consumer name: {{ steamroller_consumer_name }}
+Organization: {{ steamroller_organization }}
+Environment name: {{ steamroller_environment_name }}
+Lifecycle environment: {{ steamroller_lifecycle_environment }}
+Content view: {{ steamroller_content_view }}
+Registration status: {{ steamroller_registration_status }}
+Enabled repositories:
+{% for repo_id in steamroller_enabled_repo_ids %}- {{ repo_id }}
+{% endfor %}
+
 REPOSITORIES
 ------------
 {{ steamroller_repositories.stdout | default('') }}

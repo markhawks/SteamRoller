@@ -1,6 +1,6 @@
 # SteamRoller Project Status
 
-Last updated: 2026-09-17
+Last updated: 2026-09-22
 Current version: 0.1.0
 Status: active development
 
@@ -15,9 +15,9 @@ RHEL 9 or RHEL 10.
 Package installation, system patching, reboot orchestration, post-patch
 validation, and PRE/POST comparison are not part of the first release.
 
-The project currently supports hosts registered directly with Red Hat CDN.
-Satellite-specific validation is planned for a later environment and must not
-modify Content Views, Lifecycle Environments, or repository assignments.
+The project supports hosts registered directly with Red Hat CDN and hosts
+registered with Red Hat Satellite. Satellite validation is read-only and does
+not modify Content Views, Lifecycle Environments, or repository assignments.
 
 Cluster and HA detection is temporarily disabled for the initial single-host
 laboratory.
@@ -73,7 +73,11 @@ hosts and hosts that failed before producing a report.
 ### Red Hat registration and repositories
 
 - `subscription-manager identity` and status;
+- Satellite server, consumer name, Organization, Lifecycle Environment, and
+  Content View validation when Satellite mode is selected;
+- automatic consumer-name comparison with each host FQDN;
 - enabled repository collection;
+- validation that repositories returned by `list-enabled` have `Enabled=1`;
 - required repository ID validation;
 - DNF repository provenance without storing repository secrets;
 - discovery of `/etc/yum.repos.d/*.repo` files;
