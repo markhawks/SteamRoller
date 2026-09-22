@@ -40,7 +40,7 @@ if grep -REn --include='*.yml' --include='*.yaml' \
     exit 1
 fi
 
-grep -q 'steamroller_registration_mode: redhat_cdn' inventories/dev/group_vars/all.yml
+grep -q 'steamroller_registration_mode: auto' inventories/dev/group_vars/all.yml
 grep -q 'steamroller_cluster_check_enabled: false' inventories/dev/group_vars/all.yml
 grep -q '/opt/steamroller' packaging/rpm/steamroller.spec
 grep -q '%config(noreplace)' packaging/rpm/steamroller.spec

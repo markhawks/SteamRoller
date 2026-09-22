@@ -90,8 +90,10 @@ sudo ./scripts/test_satellite_check.sh
 Optional expected name, environment, and repository IDs can be supplied as
 positional arguments.
 
-For Satellite-managed environments, set `steamroller_registration_mode` to
-`satellite` and configure expected values in the optional environment file
+The default `steamroller_registration_mode: auto` detects Satellite from the
+RHSM server and environment returned by the managed host. A detected Satellite
+is always reported and validated, including installations that still contain
+the older `redhat_cdn` setting. Configure expected values in the optional environment file
 `inventories/ENVIRONMENT/steamroller.yml` (create it from the example).
 Precheck then validates the Satellite server, consumer name, Organization,
 Lifecycle Environment, Content View, and enabled repository IDs. The terminal

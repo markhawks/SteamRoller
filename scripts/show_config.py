@@ -8,7 +8,7 @@ import sys
 
 
 FIELDS = (
-    ("Registration mode", "steamroller_registration_mode", "redhat_cdn"),
+    ("Registration mode policy", "steamroller_registration_mode", "auto"),
     ("Expected Satellite server", "steamroller_expected_satellite_server", ""),
     ("Expected consumer name", "steamroller_expected_consumer_name", ""),
     ("Expected organization", "steamroller_expected_organization", ""),

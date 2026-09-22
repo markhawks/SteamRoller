@@ -1,6 +1,6 @@
 ---
 steamroller_environment: dev
-steamroller_registration_mode: redhat_cdn
+steamroller_registration_mode: auto
 steamroller_expected_satellite_server: ""
 steamroller_expected_consumer_name: ""
 steamroller_expected_organization: ""

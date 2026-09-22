@@ -44,7 +44,8 @@ SUBSCRIPTION STATUS
 
 SATELLITE DETAILS
 -----------------
-Mode: {{ steamroller_registration_mode }}
+Mode: {{ steamroller_effective_registration_mode }}
+Configured policy: {{ steamroller_registration_mode }}
 Server: {{ steamroller_satellite_server }}
 Consumer name: {{ steamroller_consumer_name }}
 Expected consumer name: {{ steamroller_expected_consumer_name if steamroller_expected_consumer_name | length > 0 else ansible_fqdn }}

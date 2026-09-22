@@ -270,6 +270,10 @@ def main() -> int:
             validation_mode = satellite.get("consumer_validation_mode", "unknown")
             print()
             print(f"{palette.bold}{server}{palette.reset}")
+            print(
+                f"  Mode: {row.get('registration_mode', 'satellite')} "
+                f"(policy: {row.get('registration_mode_policy', 'auto')})"
+            )
             print(f"  Satellite server: {satellite.get('server') or '-'}")
             print(
                 f"  Consumer name found: {satellite.get('consumer_name') or '-'} "

@@ -251,6 +251,20 @@
     steamroller_non_enabled_repo_values: >-
       {{ steamroller_repo_enabled_values | reject('equalto', '1') | list }}
 
+- name: Detect effective registration mode
+  ansible.builtin.set_fact:
+    steamroller_satellite_detected: >-
+      {{ steamroller_satellite_server | length > 0 and
+         steamroller_satellite_server | lower != 'subscription.rhsm.redhat.com' and
+         steamroller_environment_name | length > 0 }}
+    steamroller_effective_registration_mode: >-
+      {{ 'satellite'
+         if (steamroller_registration_mode == 'satellite' or
+             (steamroller_satellite_server | length > 0 and
+              steamroller_satellite_server | lower != 'subscription.rhsm.redhat.com' and
+              steamroller_environment_name | length > 0))
+         else 'redhat_cdn' }}
+
 - name: Classify configured repository files
   ansible.builtin.set_fact:
     steamroller_repo_files: >-
@@ -375,7 +389,7 @@
         duration: "{{ steamroller_subscription_identity.delta | default('n/a') }}"
       - name: satellite_registration
         status: >-
-          {{ 'SKIPPED' if steamroller_registration_mode != 'satellite'
+          {{ 'SKIPPED' if steamroller_effective_registration_mode != 'satellite'
              else ('PASS' if (steamroller_subscription_identity.rc == 0 and
                               steamroller_subscription_status.rc == 0 and
                               steamroller_subscription_config.rc == 0 and
@@ -486,7 +500,7 @@
   ansible.builtin.set_fact:
     steamroller_failures: "{{ steamroller_failures + ['Host is not registered with Red Hat'] }}"
   when:
-    - steamroller_registration_mode == 'redhat_cdn'
+    - steamroller_effective_registration_mode == 'redhat_cdn'
     - steamroller_subscription_identity.rc != 0
 
 - name: Add incomplete Satellite registration failures
@@ -508,7 +522,7 @@
   loop_control:
     label: "{{ item.message }}"
   when:
-    - steamroller_registration_mode == 'satellite'
+    - steamroller_effective_registration_mode == 'satellite'
     - item.failed | bool
 
 - name: Add Satellite expected-value failures
@@ -533,7 +547,7 @@
   loop_control:
     label: "{{ item.message }}"
   when:
-    - steamroller_registration_mode == 'satellite'
+    - steamroller_effective_registration_mode == 'satellite'
     - item.expected | length > 0
     - item.actual | lower != item.expected | lower
 
@@ -543,7 +557,7 @@
       {{ steamroller_failures +
          ['Satellite consumer name does not match host FQDN: ' + steamroller_consumer_name] }}
   when:
-    - steamroller_registration_mode == 'satellite'
+    - steamroller_effective_registration_mode == 'satellite'
     - steamroller_expected_consumer_name | length == 0
     - steamroller_consumer_name | lower != ansible_fqdn | lower
 
@@ -688,7 +702,9 @@
       environment: "{{ steamroller_environment | default('unspecified') }}"
       timestamp_utc: "{{ ansible_date_time.iso8601 }}"
       status: "{{ steamroller_precheck_status }}"
-      registration_mode: "{{ steamroller_registration_mode }}"
+      registration_mode: "{{ steamroller_effective_registration_mode }}"
+      registration_mode_policy: "{{ steamroller_registration_mode }}"
+      satellite_detected: "{{ steamroller_satellite_detected }}"
       satellite:
         server: "{{ steamroller_satellite_server }}"
         consumer_name: "{{ steamroller_consumer_name }}"
