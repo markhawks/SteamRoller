@@ -49,6 +49,7 @@ grep -q '/opt/steamroller' packaging/rpm/steamroller.spec
 grep -q '%config(noreplace)' packaging/rpm/steamroller.spec
 grep -q -- '--private-key' bin/steamroller
 grep -q -- '--ssh-key' bin/steamroller
+grep -q -- '-q|--quiet' bin/steamroller
 [[ -x setup/manual/install-source-path.sh ]]
 
 bash -n bin/steamroller

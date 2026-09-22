@@ -28,9 +28,9 @@ readonly STEAMROLLER_ANSIBLE_CONFIG="${ANSIBLE_CONFIG:-${DEFAULT_ANSIBLE_CONFIG}
 
 usage() {
     printf '%s\n' \
-        'Usage: steamroller precheck ENVIRONMENT [--quiet] [--ssh-key PATH] [ansible-playbook options]' \
-        '       steamroller connectivity ENVIRONMENT [--quiet] [--ssh-key PATH] [ansible-playbook options]' \
-        '       steamroller repo-off ENVIRONMENT [--quiet] [--ssh-key PATH] [ansible-playbook options]' \
+        'Usage: steamroller precheck ENVIRONMENT [-q|--quiet] [--ssh-key PATH] [ansible-playbook options]' \
+        '       steamroller connectivity ENVIRONMENT [-q|--quiet] [--ssh-key PATH] [ansible-playbook options]' \
+        '       steamroller repo-off ENVIRONMENT [-q|--quiet] [--ssh-key PATH] [ansible-playbook options]' \
         '       steamroller config [ENVIRONMENT]' \
         '       steamroller inventory {create|add|del|list} [options]' \
         '       steamroller doctor ENVIRONMENT' \
@@ -137,7 +137,7 @@ ssh_key="${STEAMROLLER_SSH_KEY:-}"
 ansible_options=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --quiet)
+        -q|--quiet)
             quiet=true
             shift
             ;;

@@ -90,10 +90,11 @@ the repository at each customer site, create the local inventory from the
 example, and keep customer-specific changes on a dedicated development branch.
 
 Normal mode shows Ansible task progress followed by a fleet summary. Quiet mode
-suppresses task progress but always shows the same final summary:
+(`-q` or `--quiet`) suppresses task progress but always shows the same final
+summary:
 
 ```bash
-./bin/steamroller precheck dev --quiet
+steamroller precheck dev -q
 ```
 
 Use a non-default SSH private key without storing its path in the inventory:
