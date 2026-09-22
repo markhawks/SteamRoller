@@ -65,6 +65,8 @@ grep -q -- '--private-key' bin/steamroller
 grep -q -- '--ssh-key' bin/steamroller
 grep -q -- '-q|--quiet' bin/steamroller
 grep -q -- 'reboot ENVIRONMENT --host HOST' bin/steamroller
+grep -q 'POSTGRESQL DETAILS' roles/precheck/templates/precheck.txt.j2
+grep -q 'postgresql.txt' roles/precheck/tasks/main.yml
 [[ -x setup/manual/install-source-path.sh ]]
 
 bash -n bin/steamroller

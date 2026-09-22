@@ -113,6 +113,18 @@
   register: steamroller_updates
   failed_when: false
 
+- name: Collect installed PostgreSQL packages and provenance
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - -qa
+      - --qf
+      - "%{NAME}|%{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}|%{VENDOR}|%{PACKAGER}\n"
+      - "postgresql*"
+  changed_when: false
+  register: steamroller_postgresql_packages
+  failed_when: false
+
 - name: Collect filesystem usage
   ansible.builtin.command: df -hP
   changed_when: false
@@ -203,10 +215,34 @@
     steamroller_glibc_updates: >-
       {{ steamroller_updates.stdout_lines | default([]) |
          select('match', '^glibc[^ ]*[.]') | list }}
+    steamroller_postgresql_package_records: >-
+      {{ steamroller_postgresql_packages.stdout_lines | default([]) |
+         reject('equalto', '') | sort | list }}
     steamroller_failed_service_lines: >-
       {{ steamroller_failed_services.stdout_lines | default([]) |
          reject('equalto', '') | list }}
     steamroller_precheck_finished_epoch: "{{ lookup('pipe', 'date +%s') | int }}"
+
+- name: Detect PostgreSQL package provenance
+  ansible.builtin.set_fact:
+    steamroller_postgresql_updates: >-
+      {{ steamroller_update_lines |
+         select('match', '^postgresql[^ ]*[.]') | list }}
+    steamroller_postgresql_pgdg_detected: >-
+      {{ ('postgresql global development group' in
+          (steamroller_postgresql_package_records | join(' ') | lower)) or
+         (steamroller_postgresql_package_records |
+          select('match', '^postgresql[0-9]+[|]') | list | length > 0) }}
+    steamroller_postgresql_redhat_detected: >-
+      {{ 'red hat' in (steamroller_postgresql_package_records | join(' ') | lower) }}
+
+- name: Classify PostgreSQL package source
+  ansible.builtin.set_fact:
+    steamroller_postgresql_source: >-
+      {{ 'NOT INSTALLED' if steamroller_postgresql_package_records | length == 0 else
+         ('MIXED' if (steamroller_postgresql_pgdg_detected and steamroller_postgresql_redhat_detected) else
+          ('COMMUNITY (PGDG)' if steamroller_postgresql_pgdg_detected else
+           ('RED HAT' if steamroller_postgresql_redhat_detected else 'UNKNOWN'))) }}
 
 - name: Determine planned running kernel
   ansible.builtin.set_fact:
@@ -430,6 +466,11 @@
       - name: available_updates
         status: "{{ 'PASS' if steamroller_updates.rc in [0, 100] else 'FAIL' }}"
         duration: "{{ steamroller_updates.delta | default('n/a') }}"
+      - name: postgresql_packages
+        status: >-
+          {{ 'FAIL' if steamroller_postgresql_packages.rc != 0 else
+             ('WARNING' if steamroller_postgresql_source in ['MIXED', 'UNKNOWN'] else 'PASS') }}
+        duration: "{{ steamroller_postgresql_packages.delta | default('n/a') }}"
       - name: filesystem_usage
         status: >-
           {{ 'FAIL' if (steamroller_df.rc != 0 or
@@ -698,6 +739,24 @@
     steamroller_warnings: "{{ steamroller_warnings + ['A reboot was already required before patching'] }}"
   when: steamroller_reboot_required.rc == 1
 
+- name: Add PostgreSQL package query failure
+  ansible.builtin.set_fact:
+    steamroller_failures: "{{ steamroller_failures + ['Unable to query installed PostgreSQL packages'] }}"
+  when: steamroller_postgresql_packages.rc != 0
+
+- name: Add mixed PostgreSQL provenance warning
+  ansible.builtin.set_fact:
+    steamroller_warnings: >-
+      {{ steamroller_warnings +
+         ['PostgreSQL packages from Red Hat and the PGDG community are installed together'] }}
+  when: steamroller_postgresql_source == 'MIXED'
+
+- name: Add unknown PostgreSQL provenance warning
+  ansible.builtin.set_fact:
+    steamroller_warnings: >-
+      {{ steamroller_warnings + ['PostgreSQL package provenance could not be classified'] }}
+  when: steamroller_postgresql_source == 'UNKNOWN'
+
 - name: Determine final precheck status
   ansible.builtin.set_fact:
     steamroller_precheck_status: >-
@@ -763,6 +822,11 @@
         kernel: "{{ steamroller_kernel_updates | length }}"
         systemd: "{{ steamroller_systemd_updates | length }}"
         glibc: "{{ steamroller_glibc_updates | length }}"
+      postgresql:
+        installed: "{{ steamroller_postgresql_package_records | length > 0 }}"
+        source: "{{ steamroller_postgresql_source }}"
+        installed_packages: "{{ steamroller_postgresql_package_records }}"
+        available_updates: "{{ steamroller_postgresql_updates }}"
       repositories:
         configured_files: "{{ steamroller_repo_files }}"
         custom_files: "{{ steamroller_custom_repo_files }}"
@@ -890,6 +954,21 @@
         DNF_RC={{ steamroller_updates.rc }}
         {{ steamroller_updates.stdout | default('') }}
         {{ steamroller_updates.stderr | default('') }}
+    - name: postgresql.txt
+      content: |-
+        POSTGRESQL PACKAGE INVENTORY
+        INSTALLED={{ steamroller_postgresql_package_records | length > 0 }}
+        SOURCE={{ steamroller_postgresql_source }}
+
+        INSTALLED PACKAGES
+        {% for package in steamroller_postgresql_package_records %}{{ package }}
+        {% else %}none
+        {% endfor %}
+
+        AVAILABLE UPDATES
+        {% for update in steamroller_postgresql_updates %}{{ update }}
+        {% else %}none
+        {% endfor %}
     - name: filesystem.txt
       content: |-
         ABSOLUTE FREE SPACE

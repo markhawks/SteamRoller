@@ -93,6 +93,19 @@ glibc packages: {{ steamroller_glibc_updates | length }}
 {{ steamroller_updates.stdout | default('') }}
 {{ steamroller_updates.stderr | default('') }}
 
+POSTGRESQL DETAILS
+------------------
+Installed: {{ steamroller_postgresql_package_records | length > 0 }}
+Package source: {{ steamroller_postgresql_source }}
+Installed packages:
+{% for package in steamroller_postgresql_package_records %}- {{ package }}
+{% else %}- none
+{% endfor %}
+Available updates:
+{% for update in steamroller_postgresql_updates %}- {{ update }}
+{% else %}- none
+{% endfor %}
+
 FILESYSTEMS
 -----------
 Root free: {{ steamroller_root_free_mb }} MiB / {{ steamroller_root_total_mb }} MiB (minimum {{ steamroller_root_min_free_mb }} MiB) {{ 'PASS' if steamroller_root_free_mb | int >= steamroller_root_min_free_mb | int else 'FAIL' }}

@@ -405,6 +405,50 @@ def main() -> int:
             else:
                 print(f"    [{palette.status('FAIL')}] none")
 
+    postgresql_rows = [row for row in rows if "postgresql" in row]
+    if postgresql_rows:
+        print()
+        print(f"{palette.bold}POSTGRESQL DETAILS{palette.reset}")
+        for row in postgresql_rows:
+            server = row.get("fqdn") or row.get("host")
+            postgresql = row.get("postgresql", {}) or {}
+            installed = bool(postgresql.get("installed", False))
+            source = str(postgresql.get("source", "UNKNOWN"))
+            packages = list(postgresql.get("installed_packages", []) or [])
+            updates = list(postgresql.get("available_updates", []) or [])
+            source_result = "WARNING" if source in {"MIXED", "UNKNOWN"} else "PASS"
+            print()
+            print(f"{palette.bold}{server}{palette.reset}")
+            print(f"  PostgreSQL installed: {'yes' if installed else 'no'}")
+            print(f"  Package source: {source} [{palette.status(source_result)}]")
+            print("  Installed packages:")
+            installed_versions: dict[str, str] = {}
+            if packages:
+                for record in packages:
+                    fields = str(record).split("|", 3)
+                    name = fields[0] if fields else str(record)
+                    version = fields[1] if len(fields) > 1 else "-"
+                    vendor = fields[2] if len(fields) > 2 else "unknown"
+                    installed_versions[name] = version
+                    print(f"    {name}: {version} (vendor: {vendor})")
+            else:
+                print("    none")
+            print("  Available PostgreSQL updates:")
+            if updates:
+                for update in updates:
+                    fields = str(update).split()
+                    package_arch = fields[0] if fields else str(update)
+                    name = package_arch.rsplit(".", 1)[0]
+                    next_version = fields[1] if len(fields) > 1 else "unknown"
+                    repository = fields[2] if len(fields) > 2 else "unknown"
+                    current_version = installed_versions.get(name, "not installed")
+                    print(
+                        f"    [UPDATE] {name}: {current_version} -> {next_version} "
+                        f"(repo: {repository})"
+                    )
+            else:
+                print(f"    [{palette.status('PASS')}] none")
+
     print()
     passed = len(rows) - failed - warned
     print(

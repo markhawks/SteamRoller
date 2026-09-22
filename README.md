@@ -15,6 +15,8 @@ The current implementation is **Phase 1 only**:
 - connectivity and privilege validation;
 - read-only RHEL 9 prechecks;
 - direct Red Hat CDN and Red Hat Satellite registration and repository checks;
+- PostgreSQL RPM inventory, Red Hat versus community PGDG provenance, and
+  available PostgreSQL update versions;
 - persistent per-host text and JSON evidence.
 
 It does not update packages, modify subscriptions, or perform cluster/HA

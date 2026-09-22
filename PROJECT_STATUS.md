@@ -105,6 +105,14 @@ can run separately or as an opt-in action immediately before precheck:
 - separate kernel, systemd, and glibc update counts;
 - pre-existing reboot requirement detection.
 
+### PostgreSQL packages
+
+- inventory of every installed `postgresql*` RPM with version and vendor;
+- classification as `RED HAT`, `COMMUNITY (PGDG)`, `MIXED`, or `UNKNOWN`;
+- warning for mixed or unknown provenance;
+- available PostgreSQL package versions and source repositories;
+- dedicated terminal, text, and JSON report sections.
+
 ### Filesystems, disk space, and inodes
 
 Absolute free space is the blocking criterion:
