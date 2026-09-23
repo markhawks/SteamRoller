@@ -59,29 +59,30 @@ def privileged(remote_command: str, variables: dict[str, object]) -> str:
 
 
 def stream_transaction(command: list[str], log_path: Path) -> tuple[int, str]:
-    collected: list[str] = []
-    with log_path.open("w", encoding="utf-8") as log:
+    collected: list[bytes] = []
+    with log_path.open("wb") as log:
         process = subprocess.Popen(
             command,
             stdin=None,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
+            bufsize=0,
         )
         assert process.stdout is not None
         while True:
             chunk = process.stdout.read(1)
-            if chunk == "" and process.poll() is not None:
+            if chunk == b"" and process.poll() is not None:
                 break
             if not chunk:
                 continue
-            sys.stdout.write(chunk)
-            sys.stdout.flush()
+            sys.stdout.buffer.write(chunk)
+            sys.stdout.buffer.flush()
             log.write(chunk)
             collected.append(chunk)
         return_code = process.wait()
-    clean_output = ANSI_ESCAPE.sub("", "".join(collected)).replace("\r", "\n")
+    raw_output = b"".join(collected).decode("utf-8", errors="replace")
+    clean_output = ANSI_ESCAPE.sub("", raw_output)
+    clean_output = clean_output.replace("\r\n", "\n").replace("\r", "\n")
     log_path.write_text(clean_output, encoding="utf-8")
     return return_code, clean_output
 
