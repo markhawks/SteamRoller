@@ -33,7 +33,7 @@ usage() {
         '       steamroller connectivity ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
         '       steamroller repo-off ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
         '       steamroller reboot ENVIRONMENT --host HOST [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [--confirm] [--timeout SECONDS]' \
-        '       steamroller update ENVIRONMENT --host HOST [-sk|--ssh-key KEY_OR_PROFILE] [--preserve-postgresql-unit {backup|restore}]' \
+        '       steamroller update ENVIRONMENT --host HOST [-sk|--ssh-key KEY_OR_PROFILE] [-F|--force] [--preserve-postgresql-unit {backup|restore}]' \
         '       steamroller config [ENVIRONMENT]' \
         '       steamroller inventory {create|add|del|list} [options]' \
         '       steamroller doctor ENVIRONMENT' \
@@ -143,6 +143,7 @@ reboot_confirmed=false
 selected_host=""
 reboot_timeout=900
 postgresql_unit_mode=""
+force_update=false
 ssh_key="${STEAMROLLER_SSH_KEY:-}"
 ansible_options=()
 while [[ $# -gt 0 ]]; do
@@ -189,6 +190,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --preserve-postgresql-unit=*)
             postgresql_unit_mode="${1#--preserve-postgresql-unit=}"
+            shift
+            ;;
+        -F|--force|--Force)
+            force_update=true
             shift
             ;;
         -sk|--ssh-key)
@@ -258,6 +263,10 @@ elif [[ -n "$postgresql_unit_mode" ]]; then
     printf '%s\n' '--preserve-postgresql-unit is valid only with update.' >&2
     exit 2
 fi
+if [[ "$force_update" == true && "$action" != "update" ]]; then
+    printf '%s\n' '-F/--force is valid only with update.' >&2
+    exit 2
+fi
 
 ssh_key_options=(--key-root "$SSH_KEY_ROOT")
 if [[ -n "$ssh_key" ]]; then
@@ -313,6 +322,9 @@ if [[ "$action" == "update" ]]; then
     fi
     if [[ -n "$postgresql_unit_mode" ]]; then
         update_command+=(--postgresql-unit-mode "$postgresql_unit_mode")
+    fi
+    if [[ "$force_update" == true ]]; then
+        update_command+=(--force)
     fi
     exec "${update_command[@]}"
 fi

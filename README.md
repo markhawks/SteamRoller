@@ -130,6 +130,23 @@ the DNF transaction log, performs post-update validation, and never reboots
 the host automatically. Its final summary prints the complete SteamRoller
 reboot command for that host.
 
+After reviewing a failed first pass, policy findings can be explicitly
+overridden with `-F` or `--force`:
+
+```bash
+steamroller update ORION-LAB \
+  --host velora-db-a01.ops.example \
+  -sk foreman \
+  --force
+```
+
+SteamRoller displays every overridden finding and requires the operator to type
+`FORCE UPDATE HOST`. Missing mounts, insufficient disk space, DNF/RPM health or
+locking failures, unsupported systems, unavailable required repositories, and
+collection failures remain hard blockers. A mandatory fstab mount reported as
+read-only is overridable; a critical filesystem such as `/` or `/boot` being
+read-only remains blocking. Forced runs can never finish as `PASS`.
+
 For legacy installations that modified the vendor PostgreSQL systemd unit,
 SteamRoller can preserve it during the update:
 

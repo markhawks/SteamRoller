@@ -19,6 +19,18 @@ ANSI_ESCAPE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))
 UPDATE_LINE = re.compile(
     r"^[A-Za-z0-9_.+:-]+[.](?:x86_64|noarch|aarch64|ppc64le|s390x|i686)\s+"
 )
+OVERRIDABLE_PRECHECK_FAILURE_PREFIXES = (
+    "Host is not registered with Red Hat",
+    "Satellite consumer identity is unavailable",
+    "Satellite server hostname is unavailable",
+    "Satellite environment name is unavailable",
+    "A repository returned by list-enabled does not have Enabled=1",
+    "Unexpected Satellite ",
+    "Satellite consumer name does not match host FQDN:",
+    "Custom repository file requires manual review:",
+    "Mandatory fstab mount is read-only:",
+    "Unable to query installed PostgreSQL packages",
+)
 
 
 class UpdateError(Exception):
@@ -179,7 +191,18 @@ def load_precheck(report_root: Path, run_id: str, host: str) -> tuple[dict, Path
     raise UpdateError("precheck did not produce a summary for the selected host")
 
 
-def run_precheck(args: argparse.Namespace, run_id: str) -> tuple[dict, Path]:
+def classify_precheck_failures(failures: list[str]) -> tuple[list[str], list[str]]:
+    overridable: list[str] = []
+    hard: list[str] = []
+    for failure in failures:
+        target = overridable if failure.startswith(OVERRIDABLE_PRECHECK_FAILURE_PREFIXES) else hard
+        target.append(failure)
+    return overridable, hard
+
+
+def run_precheck(
+    args: argparse.Namespace, run_id: str
+) -> tuple[dict, Path, list[str]]:
     command = [
         "ansible-playbook", "-i", args.inventory, args.precheck_playbook,
         "-e", f"@{args.settings}",
@@ -199,9 +222,37 @@ def run_precheck(args: argparse.Namespace, run_id: str) -> tuple[dict, Path]:
     print(f"Host: {args.host}")
     result = subprocess.run(command, check=False)
     precheck, report_dir = load_precheck(Path(args.report_root), run_id, args.host)
-    if result.returncode != 0 or precheck.get("status") == "FAIL":
+    failures = [str(item) for item in (precheck.get("failures", []) or [])]
+    if precheck.get("status") == "FAIL" or failures:
+        if not args.force:
+            raise UpdateError(f"precheck failed; inspect {report_dir / 'precheck.txt'}")
+        overridable, hard = classify_precheck_failures(failures)
+        if hard:
+            print("\nFORCED UPDATE DENIED — HARD BLOCKERS")
+            for failure in hard:
+                print(f"  [HARD BLOCKER] {failure}")
+            if overridable:
+                print("\nOverridable findings were also present:")
+                for failure in overridable:
+                    print(f"  [OVERRIDABLE] {failure}")
+            raise UpdateError("precheck contains failures that --force cannot bypass")
+        if not overridable:
+            raise UpdateError("precheck failed without a classifiable finding")
+        print("\nFORCED UPDATE AUTHORIZATION")
+        print("The following precheck failures will be overridden:")
+        for failure in overridable:
+            print(f"  [OVERRIDDEN] {failure}")
+        expected = f"FORCE UPDATE {args.host}"
+        try:
+            answer = input(f'Type "{expected}" to continue: ')
+        except EOFError as error:
+            raise UpdateError("forced update confirmation was not provided") from error
+        if answer != expected:
+            raise UpdateError("forced update cancelled by the operator")
+        return precheck, report_dir, overridable
+    if result.returncode != 0:
         raise UpdateError(f"precheck failed; inspect {report_dir / 'precheck.txt'}")
-    return precheck, report_dir
+    return precheck, report_dir, []
 
 
 def service_name(line: object) -> str:
@@ -222,13 +273,14 @@ def main() -> int:
     parser.add_argument("--precheck-playbook", required=True)
     parser.add_argument("--renderer", required=True)
     parser.add_argument("--postgresql-unit-mode", choices=("backup", "restore"))
+    parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
 
     started = int(time.time())
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     try:
         variables = inventory_hostvars(args.inventory, args.host)
-        precheck, report_dir = run_precheck(args, run_id)
+        precheck, report_dir, overridden_precheck_failures = run_precheck(args, run_id)
         fqdn = str(precheck.get("fqdn") or args.host)
         reboot_command_parts = [
             "steamroller", "reboot", args.environment, "--host", args.host,
@@ -248,6 +300,10 @@ def main() -> int:
         print(f"Current kernel: {old_kernel or '-'}")
         print(f"Expected kernel: {planned_kernel or '-'}")
         print(f"Precheck result: {precheck.get('status', 'UNKNOWN')}")
+        print(
+            "Update authorization: "
+            f"{'FORCED' if overridden_precheck_failures else 'NORMAL'}"
+        )
         print()
         print("DNF will display the complete transaction and ask Is this ok [y/N].")
         print("No package is changed unless you answer y at the native DNF prompt.")
@@ -380,6 +436,10 @@ def main() -> int:
         new_failed = [line for line in failed_after if service_name(line) not in before_names]
         failures: list[str] = []
         warnings: list[str] = []
+        if overridden_precheck_failures:
+            warnings.append(
+                f"Forced update overrode {len(overridden_precheck_failures)} precheck failure(s)"
+            )
         if cancelled:
             warnings.append("DNF transaction was cancelled by the operator")
         elif transaction_rc != 0:
@@ -445,6 +505,10 @@ def main() -> int:
                 "history": history.stdout,
                 "transaction_log": str(transaction_log),
                 "suggested_reboot_command": reboot_command,
+                "authorization": (
+                    "FORCED" if overridden_precheck_failures else "NORMAL"
+                ),
+                "overridden_precheck_failures": overridden_precheck_failures,
                 "postgresql_unit": {
                     "mode": args.postgresql_unit_mode or "disabled",
                     "path": POSTGRESQL_UNIT,
@@ -473,6 +537,10 @@ def main() -> int:
             f"Host: {fqdn}\n"
             f"Result: {status}\n"
             f"Transaction exit code: {transaction_rc}\n"
+            f"Update authorization: "
+            f"{'FORCED' if overridden_precheck_failures else 'NORMAL'}\n"
+            f"Overridden precheck failures: "
+            f"{len(overridden_precheck_failures)}\n"
             f"Previous kernel: {old_kernel}\n"
             f"Current kernel: {kernel.stdout.strip()}\n"
             f"Newest installed kernel: {newest_kernel}\n"
@@ -484,6 +552,12 @@ def main() -> int:
             f"{'yes' if postgresql_before.get('customized') else 'no'}\n"
             f"PostgreSQL unit restored: {'yes' if postgresql_restored else 'no'}\n"
             f"PostgreSQL restore validation: {postgresql_restore_validation}\n\n"
+            + "".join(
+                f"OVERRIDDEN: {failure}\n"
+                for failure in overridden_precheck_failures
+            )
+            + ("\n" if overridden_precheck_failures else "")
+            +
             f"Suggested reboot command: {reboot_command}\n\n"
             "DNF HISTORY LAST\n"
             f"{history.stdout}\n{history.stderr}",

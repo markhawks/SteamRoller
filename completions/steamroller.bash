@@ -128,7 +128,7 @@ _steamroller() {
             elif (( COMP_CWORD == 2 )); then
                 COMPREPLY=( $(compgen -W "$(_steamroller_inventories)" -- "$current") )
             else
-                COMPREPLY=( $(compgen -W '--host -sk --ssh-key --preserve-postgresql-unit' -- "$current") )
+                COMPREPLY=( $(compgen -W '--host -sk --ssh-key -F --force --Force --preserve-postgresql-unit' -- "$current") )
             fi
             ;;
         inventory)

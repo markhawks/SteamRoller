@@ -54,6 +54,23 @@ class DnfUpdateHelpersTest(unittest.TestCase):
             )
         )
 
+    def test_force_allows_mandatory_read_only_mount_finding(self) -> None:
+        overridable, hard = MODULE.classify_precheck_failures(
+            ["Mandatory fstab mount is read-only: /archive"]
+        )
+        self.assertEqual(overridable, ["Mandatory fstab mount is read-only: /archive"])
+        self.assertEqual(hard, [])
+
+    def test_force_does_not_allow_missing_mount_or_critical_read_only_fs(self) -> None:
+        overridable, hard = MODULE.classify_precheck_failures(
+            [
+                "Mandatory fstab mount is not mounted: /data",
+                "Critical filesystem is read-only: /boot",
+            ]
+        )
+        self.assertEqual(overridable, [])
+        self.assertEqual(len(hard), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

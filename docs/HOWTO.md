@@ -329,6 +329,40 @@ systemd units. It never reboots automatically. The final report prints a
 complete interactive `steamroller reboot` command for the updated host,
 including the SSH key selector when one was supplied.
 
+### Force reviewed policy failures
+
+Run the normal update first. If its precheck stops on a reviewed false positive,
+repeat it with either `-F` or `--force` (`--Force` is also accepted):
+
+```bash
+steamroller update ORION-LAB \
+  --host velora-db-a01.ops.example \
+  -sk foreman \
+  -F
+```
+
+SteamRoller reruns the complete precheck, separates overridable findings from
+hard blockers, and shows everything that would be ignored. If no hard blocker
+is present, it requires the exact interactive confirmation:
+
+```text
+FORCE UPDATE velora-db-a01.ops.example
+```
+
+The native DNF `[y/N]` confirmation is still required afterward. The report is
+marked `FORCED`, lists every overridden finding, and has a minimum result of
+`WARNING`.
+
+Typical overridable findings include custom repository policy, expected
+Satellite-value mismatches, PostgreSQL inventory collection, and a mandatory
+fstab mount detected as read-only. A missing mandatory mount is never
+overridable. A read-only critical filesystem (`/`, `/boot`, `/boot/efi`, `/var`,
+`/var/log`, or `/tmp`) also remains a hard blocker.
+
+Other hard blockers include insufficient free space or inodes, unsupported OS,
+failed mandatory collection, unavailable required repositories, `dnf check` or
+update-query failure, and an active `dnf`, `yum`, or `rpm` process.
+
 ### Protect a customized PostgreSQL systemd unit
 
 Some legacy systems contain local changes directly in:

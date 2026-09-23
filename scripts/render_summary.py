@@ -279,12 +279,19 @@ def main() -> int:
             updates = row.get("updates", {}) or {}
             new_failed = list(update.get("new_failed_units", []) or [])
             cancelled = bool(update.get("cancelled", False))
+            authorization = str(update.get("authorization", "NORMAL"))
+            overridden = list(update.get("overridden_precheck_failures", []) or [])
             print()
             print(f"{palette.bold}{server}{palette.reset} [{palette.status(status)}]")
             print(f"  Packages available before: {updates.get('before', '-')}")
             print(f"  Packages remaining: {updates.get('remaining', '-')}")
             print(f"  Transaction exit code: {update.get('transaction_exit_code', '-')}")
             print(f"  Cancelled by operator: {'yes' if cancelled else 'no'}")
+            print(f"  Update authorization: {authorization}")
+            if overridden:
+                print("  Overridden precheck failures:")
+                for finding in overridden:
+                    print(f"    [{palette.status('WARNING')}] {finding}")
             print(f"  Previous running kernel: {kernel.get('previous') or '-'}")
             print(f"  Current running kernel: {kernel.get('running') or '-'}")
             print(f"  Newest installed kernel: {kernel.get('newest_installed') or '-'}")
