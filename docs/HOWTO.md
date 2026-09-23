@@ -327,6 +327,44 @@ Afterward SteamRoller records the transaction, DNF history, remaining updates,
 kernel state, reboot requirement, package consistency, and newly failed
 systemd units. It never reboots automatically.
 
+### Protect a customized PostgreSQL systemd unit
+
+Some legacy systems contain local changes directly in:
+
+```text
+/usr/lib/systemd/system/postgresql.service
+```
+
+Back up the unit and report changes without restoring it:
+
+```bash
+steamroller update ORION-LAB \
+  --host velora-db-a01.ops.example \
+  -sk foreman \
+  --preserve-postgresql-unit backup
+```
+
+Explicitly restore a unit that RPM verification identified as customized:
+
+```bash
+steamroller update ORION-LAB \
+  --host velora-db-a01.ops.example \
+  -sk foreman \
+  --preserve-postgresql-unit restore
+```
+
+Both modes create protected local and remote evidence, capture `systemctl cat`,
+record the owning RPM, calculate checksums, and produce a unified difference.
+`restore` runs `systemctl daemon-reload` and `systemd-analyze verify` after
+copying the customized unit back. It does not restart PostgreSQL.
+
+Restoring the complete vendor unit is a compatibility measure. The recommended
+permanent solution is to migrate local directives to:
+
+```text
+/etc/systemd/system/postgresql.service.d/override.conf
+```
+
 ## 14. Report status
 
 ```bash

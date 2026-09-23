@@ -33,7 +33,7 @@ usage() {
         '       steamroller connectivity ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
         '       steamroller repo-off ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
         '       steamroller reboot ENVIRONMENT --host HOST [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [--confirm] [--timeout SECONDS]' \
-        '       steamroller update ENVIRONMENT --host HOST [-sk|--ssh-key KEY_OR_PROFILE]' \
+        '       steamroller update ENVIRONMENT --host HOST [-sk|--ssh-key KEY_OR_PROFILE] [--preserve-postgresql-unit {backup|restore}]' \
         '       steamroller config [ENVIRONMENT]' \
         '       steamroller inventory {create|add|del|list} [options]' \
         '       steamroller doctor ENVIRONMENT' \
@@ -142,6 +142,7 @@ repo_off_requested=false
 reboot_confirmed=false
 selected_host=""
 reboot_timeout=900
+postgresql_unit_mode=""
 ssh_key="${STEAMROLLER_SSH_KEY:-}"
 ansible_options=()
 while [[ $# -gt 0 ]]; do
@@ -177,6 +178,18 @@ while [[ $# -gt 0 ]]; do
             }
             reboot_timeout="$2"
             shift 2
+            ;;
+        --preserve-postgresql-unit)
+            [[ $# -ge 2 ]] || {
+                printf '%s\n' 'Missing backup or restore after --preserve-postgresql-unit.' >&2
+                exit 2
+            }
+            postgresql_unit_mode="$2"
+            shift 2
+            ;;
+        --preserve-postgresql-unit=*)
+            postgresql_unit_mode="${1#--preserve-postgresql-unit=}"
+            shift
             ;;
         -sk|--ssh-key)
             [[ $# -ge 2 ]] || {
@@ -237,6 +250,13 @@ if [[ "$action" == "update" ]]; then
         printf '%s\n' 'The update command does not accept additional ansible-playbook options.' >&2
         exit 2
     }
+    [[ -z "$postgresql_unit_mode" || "$postgresql_unit_mode" == "backup" || "$postgresql_unit_mode" == "restore" ]] || {
+        printf '%s\n' '--preserve-postgresql-unit accepts only backup or restore.' >&2
+        exit 2
+    }
+elif [[ -n "$postgresql_unit_mode" ]]; then
+    printf '%s\n' '--preserve-postgresql-unit is valid only with update.' >&2
+    exit 2
 fi
 
 ssh_key_options=(--key-root "$SSH_KEY_ROOT")
@@ -286,6 +306,9 @@ if [[ "$action" == "update" ]]; then
     fi
     if [[ -n "$ssh_key" ]]; then
         update_command+=(--ssh-key "$ssh_key")
+    fi
+    if [[ -n "$postgresql_unit_mode" ]]; then
+        update_command+=(--postgresql-unit-mode "$postgresql_unit_mode")
     fi
     exec "${update_command[@]}"
 fi

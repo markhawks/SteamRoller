@@ -274,6 +274,7 @@ def main() -> int:
             server = row.get("fqdn") or row.get("host")
             status = str(row.get("status", "FAIL"))
             update = row.get("dnf_update", {}) or {}
+            postgresql_unit = update.get("postgresql_unit", {}) or {}
             kernel = row.get("kernel", {}) or {}
             updates = row.get("updates", {}) or {}
             new_failed = list(update.get("new_failed_units", []) or [])
@@ -299,6 +300,25 @@ def main() -> int:
             else:
                 print(f"    [{palette.status('PASS')}] none")
             print(f"  Transaction log: {update.get('transaction_log') or '-'}")
+            if postgresql_unit.get("mode") != "disabled":
+                print("  PostgreSQL unit protection:")
+                print(f"    Mode: {postgresql_unit.get('mode') or '-'}")
+                print(
+                    "    Customized before update: "
+                    f"{'yes' if postgresql_unit.get('customized_before') else 'no'}"
+                )
+                print(f"    RPM owner: {postgresql_unit.get('rpm_owner') or '-'}")
+                print(f"    Remote backup: {postgresql_unit.get('remote_backup') or '-'}")
+                print(f"    Difference report: {postgresql_unit.get('diff') or '-'}")
+                if postgresql_unit.get("mode") == "restore":
+                    print(
+                        "    Restored: "
+                        f"{'yes' if postgresql_unit.get('restored') else 'no/not needed'}"
+                    )
+                    print(
+                        "    Restore validation: "
+                        f"{postgresql_unit.get('restore_validation') or '-'}"
+                    )
             print(f"  Duration: {row.get('duration_seconds', '-')} seconds")
             print(f"  Report: {row.get('report_dir', '-')}")
 

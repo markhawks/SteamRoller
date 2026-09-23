@@ -129,6 +129,20 @@ The update command requires an interactive terminal, has no quiet mode, saves
 the DNF transaction log, performs post-update validation, and never reboots
 the host automatically.
 
+For legacy installations that modified the vendor PostgreSQL systemd unit,
+SteamRoller can preserve it during the update:
+
+```bash
+steamroller update ORION-LAB \
+  --host velora-db-a01.ops.example \
+  -sk foreman \
+  --preserve-postgresql-unit restore
+```
+
+Use `backup` instead of `restore` to collect the original unit and a diff
+without replacing the newly installed vendor file. Long term, custom settings
+should be moved to `/etc/systemd/system/postgresql.service.d/override.conf`.
+
 ## Reports
 
 Source checkouts store reports beneath:

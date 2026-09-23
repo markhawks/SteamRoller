@@ -117,12 +117,18 @@ _steamroller() {
         update)
             if [[ "$previous" == "-sk" || "$previous" == "--ssh-key" ]]; then
                 COMPREPLY=( $(compgen -W "$(_steamroller_key_profiles)" -- "$current") )
+            elif [[ "$previous" == "--preserve-postgresql-unit" ]]; then
+                COMPREPLY=( $(compgen -W 'backup restore' -- "$current") )
+            elif [[ "$current" == --preserve-postgresql-unit=* ]]; then
+                local mode_prefix="${current%%=*}="
+                local mode_value="${current#*=}"
+                COMPREPLY=( $(compgen -P "$mode_prefix" -W 'backup restore' -- "$mode_value") )
             elif [[ "$previous" == "--host" ]]; then
                 COMPREPLY=( $(compgen -W "$(_steamroller_inventory_hosts "${COMP_WORDS[2]:-}")" -- "$current") )
             elif (( COMP_CWORD == 2 )); then
                 COMPREPLY=( $(compgen -W "$(_steamroller_inventories)" -- "$current") )
             else
-                COMPREPLY=( $(compgen -W '--host -sk --ssh-key' -- "$current") )
+                COMPREPLY=( $(compgen -W '--host -sk --ssh-key --preserve-postgresql-unit' -- "$current") )
             fi
             ;;
         inventory)

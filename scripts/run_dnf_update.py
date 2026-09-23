@@ -2,7 +2,10 @@
 """Run one interactive, audited DNF update through SteamRoller."""
 
 import argparse
+import base64
+import binascii
 from datetime import datetime, timezone
+import difflib
 import json
 from pathlib import Path
 import re
@@ -40,12 +43,17 @@ def inventory_hostvars(inventory: str, host: str) -> dict[str, object]:
     return variables[host]
 
 
-def ssh_base(host: str, variables: dict[str, object], key: str | None) -> list[str]:
+POSTGRESQL_UNIT = "/usr/lib/systemd/system/postgresql.service"
+
+
+def ssh_base(
+    host: str, variables: dict[str, object], key: str | None, *, tty: bool = False
+) -> list[str]:
     address = str(variables.get("ansible_host", host))
     user = str(variables.get("ansible_user", "root"))
     port = str(variables.get("ansible_port", 22))
     command = [
-        "ssh", "-tt", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15",
+        "ssh", "-tt" if tty else "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15",
         "-p", port,
     ]
     if key:
@@ -94,6 +102,71 @@ def remote_capture(
         base + [privileged(remote_command, variables)],
         check=False,
     )
+
+
+def rpm_verify_reports_path(output: str, path: str) -> bool:
+    return any(
+        line.split() and line.split()[-1] == path
+        for line in output.splitlines()
+    )
+
+
+def collect_postgresql_unit(
+    base: list[str], variables: dict[str, object]
+) -> dict[str, object]:
+    exists = remote_capture(base, variables, f"test -f {POSTGRESQL_UNIT}")
+    if exists.returncode != 0:
+        return {"exists": False}
+    content = remote_capture(base, variables, f"base64 -w0 {POSTGRESQL_UNIT}")
+    if content.returncode != 0:
+        raise UpdateError(f"unable to read {POSTGRESQL_UNIT}")
+    try:
+        unit_bytes = base64.b64decode(content.stdout.strip(), validate=True)
+    except (ValueError, binascii.Error) as error:
+        raise UpdateError(f"invalid backup data received for {POSTGRESQL_UNIT}") from error
+    owner = remote_capture(base, variables, f"rpm -qf {POSTGRESQL_UNIT}")
+    verify = remote_capture(base, variables, f"rpm -Vf {POSTGRESQL_UNIT}")
+    systemctl_cat = remote_capture(base, variables, "systemctl cat postgresql.service")
+    checksum = remote_capture(base, variables, f"sha256sum {POSTGRESQL_UNIT}")
+    stat = remote_capture(base, variables, f"stat -c '%U:%G %a %s' {POSTGRESQL_UNIT}")
+    verify_output = (verify.stdout + verify.stderr).strip()
+    return {
+        "exists": True,
+        "content": unit_bytes,
+        "owner": owner.stdout.strip(),
+        "owner_exit_code": owner.returncode,
+        "rpm_verify": verify_output,
+        "rpm_verify_exit_code": verify.returncode,
+        "customized": (
+            owner.returncode != 0
+            or rpm_verify_reports_path(verify_output, POSTGRESQL_UNIT)
+        ),
+        "systemctl_cat": systemctl_cat.stdout,
+        "checksum": checksum.stdout.split()[0] if checksum.returncode == 0 else "",
+        "stat": stat.stdout.strip(),
+    }
+
+
+def write_unit_evidence(report_dir: Path, label: str, state: dict[str, object]) -> None:
+    if not state.get("exists"):
+        return
+    unit_path = report_dir / f"postgresql-unit-{label}.service"
+    unit_path.write_bytes(bytes(state["content"]))
+    unit_path.chmod(0o640)
+    details_path = report_dir / f"postgresql-unit-{label}.txt"
+    details_path.write_text(
+        f"File: {POSTGRESQL_UNIT}\n"
+        f"RPM owner: {state.get('owner') or '-'}\n"
+        f"RPM verify exit code: {state.get('rpm_verify_exit_code')}\n"
+        f"RPM verify output: {state.get('rpm_verify') or 'none'}\n"
+        f"Customized: {'yes' if state.get('customized') else 'no'}\n"
+        f"SHA256: {state.get('checksum') or '-'}\n"
+        f"Owner/mode/size: {state.get('stat') or '-'}\n\n"
+        "SYSTEMCTL CAT\n"
+        f"{state.get('systemctl_cat') or ''}",
+        encoding="utf-8",
+    )
+    details_path.chmod(0o640)
 
 
 def load_precheck(report_root: Path, run_id: str, host: str) -> tuple[dict, Path]:
@@ -146,6 +219,7 @@ def main() -> int:
     parser.add_argument("--report-root", required=True)
     parser.add_argument("--precheck-playbook", required=True)
     parser.add_argument("--renderer", required=True)
+    parser.add_argument("--postgresql-unit-mode", choices=("backup", "restore"))
     args = parser.parse_args()
 
     started = int(time.time())
@@ -172,8 +246,37 @@ def main() -> int:
         print()
 
         base = ssh_base(args.host, variables, args.ssh_key)
+        postgresql_before: dict[str, object] = {"exists": False}
+        postgresql_remote_backup = ""
+        if args.postgresql_unit_mode:
+            postgresql_before = collect_postgresql_unit(base, variables)
+            if postgresql_before.get("exists"):
+                write_unit_evidence(report_dir, "before", postgresql_before)
+                postgresql_remote_backup = (
+                    f"/var/lib/steamroller/backups/postgresql-unit/{run_id}"
+                    "/postgresql.service"
+                )
+                backup_command = (
+                    f"install -d -m 0700 /var/lib/steamroller/backups/postgresql-unit/{run_id}"
+                    f" && cp -a {POSTGRESQL_UNIT} {postgresql_remote_backup}"
+                    f" && chmod 0600 {postgresql_remote_backup}"
+                )
+                backup_result = remote_capture(base, variables, backup_command)
+                if backup_result.returncode != 0:
+                    raise UpdateError("unable to create the remote PostgreSQL unit backup")
+                print("PostgreSQL unit protection:")
+                print(f"  Mode: {args.postgresql_unit_mode}")
+                print(f"  Customized: {'yes' if postgresql_before.get('customized') else 'no'}")
+                print(f"  Remote backup: {postgresql_remote_backup}")
+                print(f"  Local evidence: {report_dir}")
+                print()
+            else:
+                print(f"PostgreSQL unit protection: {POSTGRESQL_UNIT} not found; skipped")
+                print()
         transaction_log = report_dir / "dnf-transaction.log"
-        update_command = base + [privileged("dnf upgrade", variables)]
+        update_command = ssh_base(args.host, variables, args.ssh_key, tty=True) + [
+            privileged("dnf upgrade", variables)
+        ]
         transaction_rc, transaction_output = stream_transaction(update_command, transaction_log)
 
         cancelled = (
@@ -190,6 +293,76 @@ def main() -> int:
             base, variables, "systemctl --failed --no-legend --no-pager"
         )
         history = remote_capture(base, variables, "dnf history info last")
+
+        postgresql_after: dict[str, object] = {"exists": False}
+        postgresql_restored = False
+        postgresql_restore_valid = False
+        postgresql_restore_validation = "not requested"
+        postgresql_diff_path = ""
+        if args.postgresql_unit_mode and postgresql_before.get("exists"):
+            postgresql_after = collect_postgresql_unit(base, variables)
+            write_unit_evidence(report_dir, "after-update", postgresql_after)
+            before_text = bytes(postgresql_before["content"]).decode(
+                "utf-8", errors="replace"
+            ).splitlines(keepends=True)
+            after_text = bytes(postgresql_after.get("content", b"")).decode(
+                "utf-8", errors="replace"
+            ).splitlines(keepends=True)
+            diff_text = "".join(
+                difflib.unified_diff(
+                    before_text,
+                    after_text,
+                    fromfile="postgresql.service.before",
+                    tofile="postgresql.service.after-update",
+                )
+            )
+            diff_file = report_dir / "postgresql-unit.diff"
+            diff_file.write_text(diff_text or "No differences.\n", encoding="utf-8")
+            diff_file.chmod(0o640)
+            postgresql_diff_path = str(diff_file)
+
+            if (
+                args.postgresql_unit_mode == "restore"
+                and postgresql_before.get("customized")
+                and not cancelled
+            ):
+                restore_command = (
+                    f"cp -a {postgresql_remote_backup} {POSTGRESQL_UNIT}"
+                    " && systemctl daemon-reload"
+                )
+                restore_result = remote_capture(base, variables, restore_command)
+                if restore_result.returncode == 0:
+                    restored_state = collect_postgresql_unit(base, variables)
+                    postgresql_restored = (
+                        restored_state.get("checksum")
+                        == postgresql_before.get("checksum")
+                    )
+                    write_unit_evidence(
+                        report_dir,
+                        "restored",
+                        restored_state,
+                    )
+                    verify_result = remote_capture(
+                        base, variables, f"systemd-analyze verify {POSTGRESQL_UNIT}"
+                    )
+                    postgresql_restore_valid = (
+                        postgresql_restored and verify_result.returncode == 0
+                    )
+                    postgresql_restore_validation = (
+                        "PASS" if postgresql_restore_valid else
+                        (verify_result.stdout + verify_result.stderr).strip()
+                        or "restored checksum does not match the backup"
+                    )
+                else:
+                    postgresql_restore_validation = (
+                        (restore_result.stdout + restore_result.stderr).strip()
+                        or "restore command failed"
+                    )
+            elif args.postgresql_unit_mode == "restore":
+                postgresql_restore_validation = (
+                    "not performed; DNF transaction was cancelled"
+                    if cancelled else "not needed; unit was not customized"
+                )
 
         remaining_lines = [
             line for line in remaining.stdout.splitlines() if UPDATE_LINE.match(line)
@@ -213,6 +386,18 @@ def main() -> int:
             warnings.append(f"{len(remaining_lines)} package updates remain available")
         if reboot_required.returncode == 1:
             warnings.append("A reboot is required to complete the update")
+        if args.postgresql_unit_mode == "backup" and postgresql_before.get("customized"):
+            if postgresql_before.get("checksum") != postgresql_after.get("checksum"):
+                warnings.append(
+                    "Customized PostgreSQL unit changed during update; review the saved diff"
+                )
+        if (
+            args.postgresql_unit_mode == "restore"
+            and postgresql_before.get("customized")
+            and not cancelled
+            and not postgresql_restore_valid
+        ):
+            failures.append("Customized PostgreSQL unit could not be restored and validated")
 
         status = "FAIL" if failures else ("WARNING" if warnings else "PASS")
         newest_kernel = ""
@@ -251,6 +436,20 @@ def main() -> int:
                 "new_failed_units": new_failed,
                 "history": history.stdout,
                 "transaction_log": str(transaction_log),
+                "postgresql_unit": {
+                    "mode": args.postgresql_unit_mode or "disabled",
+                    "path": POSTGRESQL_UNIT,
+                    "present_before": bool(postgresql_before.get("exists")),
+                    "customized_before": bool(postgresql_before.get("customized")),
+                    "rpm_owner": postgresql_before.get("owner", ""),
+                    "checksum_before": postgresql_before.get("checksum", ""),
+                    "checksum_after_update": postgresql_after.get("checksum", ""),
+                    "remote_backup": postgresql_remote_backup,
+                    "diff": postgresql_diff_path,
+                    "restored": postgresql_restored,
+                    "restore_valid": postgresql_restore_valid,
+                    "restore_validation": postgresql_restore_validation,
+                },
             },
             "warnings": warnings,
             "failures": failures,
@@ -270,7 +469,12 @@ def main() -> int:
             f"Newest installed kernel: {newest_kernel}\n"
             f"Remaining updates: {len(remaining_lines)}\n"
             f"Reboot required: {'yes' if reboot_required.returncode == 1 else 'no'}\n"
-            f"New failed units: {', '.join(service_name(line) for line in new_failed) or 'none'}\n\n"
+            f"New failed units: {', '.join(service_name(line) for line in new_failed) or 'none'}\n"
+            f"PostgreSQL unit mode: {args.postgresql_unit_mode or 'disabled'}\n"
+            f"PostgreSQL unit customized before: "
+            f"{'yes' if postgresql_before.get('customized') else 'no'}\n"
+            f"PostgreSQL unit restored: {'yes' if postgresql_restored else 'no'}\n"
+            f"PostgreSQL restore validation: {postgresql_restore_validation}\n\n"
             "DNF HISTORY LAST\n"
             f"{history.stdout}\n{history.stderr}",
             encoding="utf-8",

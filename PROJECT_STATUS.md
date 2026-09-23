@@ -118,6 +118,7 @@ always interactive and intentionally does not accept `-q`/`--quiet`.
 - native `dnf upgrade` transaction displayed through an SSH pseudo-terminal;
 - package installation requires the native DNF `Is this ok [y/N]` answer;
 - complete transaction log and DNF history evidence;
+- optional PostgreSQL vendor-unit backup, comparison, and explicit restoration;
 - remaining updates, kernel state, `dnf check`, reboot requirement, and newly
   failed systemd units checked after the transaction;
 - no automatic reboot.

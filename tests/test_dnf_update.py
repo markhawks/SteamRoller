@@ -40,6 +40,20 @@ class DnfUpdateHelpersTest(unittest.TestCase):
             "example.service",
         )
 
+    def test_rpm_verification_matches_only_the_target_unit(self) -> None:
+        output = (
+            "S.5....T.  c /etc/example.conf\n"
+            "S.5....T.    /usr/lib/systemd/system/postgresql.service\n"
+        )
+        self.assertTrue(
+            MODULE.rpm_verify_reports_path(output, MODULE.POSTGRESQL_UNIT)
+        )
+        self.assertFalse(
+            MODULE.rpm_verify_reports_path(
+                output, "/usr/lib/systemd/system/other.service"
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
