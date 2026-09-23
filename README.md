@@ -143,6 +143,20 @@ Use `backup` instead of `restore` to collect the original unit and a diff
 without replacing the newly installed vendor file. Long term, custom settings
 should be moved to `/etc/systemd/system/postgresql.service.d/override.conf`.
 
+The option values are available with Tab completion:
+
+```bash
+steamroller update ORION-LAB --host velora-db-a01.ops.example \
+  --preserve-postgresql-unit <TAB><TAB>
+# backup  restore
+```
+
+`restore` is deliberately explicit. SteamRoller restores the file only when
+RPM verification identifies it as locally modified (or when the file is not
+owned by an RPM). It verifies the restored checksum, reloads systemd, validates
+the unit, and reports a failure if any of those checks fail. It does not restart
+the database service.
+
 ## Reports
 
 Source checkouts store reports beneath:
@@ -156,6 +170,10 @@ filesystem, mount, kernel, network, repository, Satellite, systemd, update, and
 PostgreSQL details. Update runs add the complete DNF transaction and postcheck;
 reboot runs preserve evidence before reboot and create a POST validation
 report after the host returns.
+
+With PostgreSQL unit protection enabled, the update report also contains the
+unit before and after DNF, metadata, `systemctl cat` evidence, a unified diff,
+and—when requested—the restored unit.
 
 List runs with:
 

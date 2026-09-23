@@ -4,13 +4,14 @@ Last updated: 2026-09-23
 
 Current version: **0.2.0**
 
-Status: version 0.2.0 validated on real RHEL 9 systems; active development
+Status: version 0.2.0 validated on real RHEL 9 systems; post-release update
+workflow under active development
 
 License: AGPL-3.0-or-later
 
-## Release scope
+## Current development scope
 
-SteamRoller 0.2.0 manages remote RHEL 9.x hosts from a RHEL 9 or RHEL 10
+SteamRoller manages remote RHEL 9.x hosts from a RHEL 9 or RHEL 10
 control node. Its primary workflow is read-only assessment and evidence
 collection. Three changes to managed hosts require explicit operator action:
 
@@ -86,6 +87,13 @@ always interactive and intentionally does not accept `-q`/`--quiet`.
 - warnings for mixed or unknown provenance;
 - available PostgreSQL versions and source repositories;
 - dedicated terminal, text, and JSON evidence.
+- optional protection for a customized
+  `/usr/lib/systemd/system/postgresql.service` during DNF update;
+- `backup` mode preserves the unit and reports the vendor-file differences;
+- `restore` mode restores only a unit identified as customized, runs
+  `daemon-reload`, verifies its checksum, and validates it with
+  `systemd-analyze verify`;
+- PostgreSQL is never restarted automatically.
 
 ### Capacity, mounts, and system state
 
@@ -184,9 +192,13 @@ Configuration is validated before contacting managed hosts.
 - controlled single-host reboot on a real non-production system;
 - successful SSH return, boot-ID change, kernel comparison, mandatory-mount
   checks, and PRE/POST reboot reporting.
+- interactive single-host DNF update on a real test system;
+- native DNF terminal display and manual confirmation;
+- automated tests for PostgreSQL unit detection and update-option completion.
 
-The complete 0.2.0 workflow has been exercised successfully by the operator,
-including the controlled reboot path.
+The 0.2.0 workflow and the subsequent interactive DNF update have been
+exercised successfully by the operator. PostgreSQL unit restoration still
+requires validation on a non-production host containing a customized unit.
 
 ## Security model
 
@@ -195,7 +207,7 @@ including the controlled reboot path.
 - private-key contents are never included in reports;
 - normal checks remain read-only;
 - mutating commands require an explicit action or option;
-- repository backups use mode `0600`;
+- repository and PostgreSQL unit backups use mode `0600`;
 - report directories use mode `0750`.
 
 ## Remaining work
@@ -206,12 +218,13 @@ including the controlled reboot path.
 - define report retention and backup policy;
 - improve failed-systemd-unit classification by unit type;
 - complete RPM build and clean installation testing;
-- design patch execution only after 0.2 acceptance.
+- validate PostgreSQL unit `backup` and `restore` modes on a non-production host;
+- implement a dedicated postcheck and PRE/POST maintenance comparison.
 
 ## Explicitly deferred
 
-- package update execution;
 - automatic or multi-host reboot;
+- unattended or multi-host package updates;
 - cluster and HA detection/orchestration;
 - application stop/start workflows;
 - automatic filesystem cleanup;

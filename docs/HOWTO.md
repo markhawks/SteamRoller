@@ -358,6 +358,42 @@ record the owning RPM, calculate checksums, and produce a unified difference.
 `restore` runs `systemctl daemon-reload` and `systemd-analyze verify` after
 copying the customized unit back. It does not restart PostgreSQL.
 
+Tab completion is available for the mode:
+
+```bash
+steamroller update ORION-LAB --host velora-db-a01.ops.example \
+  --preserve-postgresql-unit <TAB><TAB>
+```
+
+Expected suggestions:
+
+```text
+backup  restore
+```
+
+The remote backup is stored with mode `0600` at:
+
+```text
+/var/lib/steamroller/backups/postgresql-unit/RUN_ID/postgresql.service
+```
+
+The local report can contain:
+
+```text
+postgresql-unit-before.service
+postgresql-unit-before.txt
+postgresql-unit-after-update.service
+postgresql-unit-after-update.txt
+postgresql-unit-restored.service
+postgresql-unit-restored.txt
+postgresql-unit.diff
+```
+
+The `restored` files are created only when restoration is necessary and
+successful. If DNF is cancelled, SteamRoller retains the backup but does not
+perform an unnecessary restore. A failed copy, checksum comparison, systemd
+reload, or unit validation makes the update result `FAIL`.
+
 Restoring the complete vendor unit is a compatibility measure. The recommended
 permanent solution is to migrate local directives to:
 

@@ -390,11 +390,11 @@ not duplicate patching logic. Make accidental PROD execution difficult.
 
 # Roadmap
 
-1.  **Discovery:** repository structure, inventory, connectivity and
-    read-only precheck.
-2.  **Reporting:** persistent PRE snapshots and JSON/text summaries.
-3.  **DEV patching:** DNF, error handling, reboot and postcheck;
-    `serial: 1`.
+1.  **Discovery (complete):** repository structure, inventory, connectivity
+    and read-only precheck.
+2.  **Reporting (complete):** persistent PRE snapshots and JSON/text summaries.
+3.  **DEV patching (in progress):** interactive single-host DNF and controlled
+    reboot are implemented; dedicated postcheck remains pending.
 4.  **Comparison:** automatic PRE/POST validation.
 5.  **RELEASE/TEST:** larger inventory validation.
 6.  **Production hardening:** approvals, batches, failure strategy,
@@ -402,9 +402,9 @@ not duplicate patching logic. Make accidental PROD execution difficult.
 7.  **Automation Controller:** reuse the same
     repository/playbooks/roles/configuration.
 
-# First Codex task
+# Initial implementation milestone (completed)
 
-Do **Phase 1 only**.
+The original Phase 1 requirement was:
 
 Required commands:
 
@@ -416,8 +416,10 @@ ansible-playbook -i inventories/dev/hosts.yml playbooks/10-precheck.yml
 `10-precheck.yml` must be read-only, return per-host
 `PASS/WARNING/FAIL`, and persist reports on the control node.
 
-**Do not implement DNF update or reboot until the precheck design is
-validated.**
+This gate has been satisfied: the precheck and controlled reboot were validated
+on real test systems before interactive DNF update was added. Current update
+execution remains single-host, requires the native DNF confirmation, never
+reboots automatically, and can protect a customized PostgreSQL systemd unit.
 
 # Core principle
 
