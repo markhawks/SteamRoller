@@ -362,6 +362,11 @@ def main() -> int:
                 f"  Uptime: {row.get('uptime_days', '-')} days "
                 f"[{row.get('uptime_severity', '-')}]"
             )
+            if row.get("suggested_reboot_command"):
+                print(
+                    "  Suggested reboot command: "
+                    f"{row.get('suggested_reboot_command')}"
+                )
             print(
                 "  Updates: "
                 f"{updates.get('total', '-')} total, "

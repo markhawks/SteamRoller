@@ -254,21 +254,22 @@ steamroller repo-off ORION-LAB -q -sk foreman
 This performs only the explicit backup and quarantine operation. It does not
 run the complete precheck afterward.
 
-## 12. Controlled single-host reboot
+## 12. Controlled sequential reboot
 
 Interactive execution:
 
 ```bash
 steamroller reboot ORION-LAB \
   --host velora-db-a01.ops.example \
+  --host velora-db-a02.ops.example \
   -sk foreman
 ```
 
-The hostname must be an exact alias from the selected inventory. SteamRoller
-asks the operator to type:
+Each hostname must be an exact alias from the selected inventory. SteamRoller
+shows the ordered target list and asks the operator to type:
 
 ```text
-REBOOT velora-db-a01.ops.example
+REBOOT velora-db-a01.ops.example velora-db-a02.ops.example
 ```
 
 Non-interactive execution requires explicit authorization:
@@ -292,7 +293,9 @@ steamroller reboot ORION-LAB \
 
 Safety behavior:
 
-- exactly one inventory host is accepted;
+- one or more explicitly selected inventory hosts are accepted;
+- every host requires a separate `--host` option;
+- hosts are processed sequentially with Ansible `serial: 1`;
 - active `dnf`, `yum`, or `rpm` blocks reboot;
 - missing mandatory fstab mounts block reboot;
 - PRE evidence is written before changing state;
@@ -300,7 +303,8 @@ Safety behavior:
 - mounts, kernel, uptime, and failed units are checked after reboot;
 - newly failed units produce a failed result.
 
-There is no `--all` reboot option in version 0.3.0.
+There is no `--all` reboot option in version 0.3.0; SteamRoller never expands
+the command to the complete inventory implicitly.
 
 ## 13. Interactive single-host DNF update
 

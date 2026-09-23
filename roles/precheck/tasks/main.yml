@@ -683,7 +683,13 @@
 
 - name: Add high disk usage warnings
   ansible.builtin.set_fact:
-    steamroller_warnings: "{{ steamroller_warnings + ['Filesystem at or above high-use threshold: ' + item.mount] }}"
+    steamroller_warnings: >-
+      {{ steamroller_warnings +
+         ['Filesystem ' + item.mount + ' is ' +
+          ((100 - (item.size_available | int * 100 / item.size_total | int)) | int | string) +
+          '% used; ' + ((item.size_available | int * 100 / item.size_total | int) | int | string) +
+          '% free (' + ((item.size_available | int // 1048576) | string) +
+          ' MiB of ' + ((item.size_total | int // 1048576) | string) + ' MiB)'] }}
   loop: "{{ ansible_mounts }}"
   when:
     - item.mount in ['/', '/boot', '/boot/efi', '/var', '/var/log', '/tmp']
@@ -707,7 +713,13 @@
 
 - name: Add disk usage warnings
   ansible.builtin.set_fact:
-    steamroller_warnings: "{{ steamroller_warnings + ['Filesystem above warning usage: ' + item.mount] }}"
+    steamroller_warnings: >-
+      {{ steamroller_warnings +
+         ['Filesystem ' + item.mount + ' is ' +
+          ((100 - (item.size_available | int * 100 / item.size_total | int)) | int | string) +
+          '% used; ' + ((item.size_available | int * 100 / item.size_total | int) | int | string) +
+          '% free (' + ((item.size_available | int // 1048576) | string) +
+          ' MiB of ' + ((item.size_total | int // 1048576) | string) + ' MiB)'] }}
   loop: "{{ ansible_mounts }}"
   when:
     - item.mount in ['/', '/boot', '/boot/efi', '/var', '/var/log', '/tmp']
@@ -816,6 +828,12 @@
         planned: "{{ steamroller_planned_kernel }}"
       uptime_days: "{{ ansible_uptime_seconds | int // 86400 }}"
       uptime_severity: "{{ steamroller_uptime_severity }}"
+      suggested_reboot_command: >-
+        {{ ('steamroller reboot ' + (steamroller_environment | default('ENVIRONMENT')) +
+            ' --host ' + inventory_hostname +
+            ((' -sk ' + (steamroller_ssh_key_selector | default('')))
+             if steamroller_ssh_key_selector | default('') | length > 0 else ''))
+           if steamroller_uptime_severity != 'PASS' else '' }}
       duration_seconds: "{{ steamroller_precheck_finished_epoch | int - steamroller_precheck_started_epoch | int }}"
       updates:
         total: "{{ steamroller_update_lines | length }}"

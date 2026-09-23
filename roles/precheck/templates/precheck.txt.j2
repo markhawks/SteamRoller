@@ -31,6 +31,8 @@ UPTIME
 Boot/uptime since: {{ steamroller_uptime_since.stdout | default('unavailable') }}
 Days: {{ ansible_uptime_seconds | int // 86400 }}
 Severity: {{ steamroller_uptime_severity }}
+{% if steamroller_uptime_severity != 'PASS' %}Suggested reboot command: {{ steamroller_summary.suggested_reboot_command }}
+{% endif %}
 
 SUBSCRIPTION IDENTITY
 ---------------------

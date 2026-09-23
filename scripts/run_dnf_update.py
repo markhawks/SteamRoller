@@ -213,6 +213,8 @@ def run_precheck(
         [
             "-e", f"steamroller_report_root={args.report_root}",
             "-e", f"steamroller_run_id={run_id}",
+            "-e", f"steamroller_environment={args.environment}",
+            "-e", f"steamroller_ssh_key_selector={args.ssh_key_selector or ''}",
             "--limit", args.host,
         ]
     )

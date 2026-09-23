@@ -79,6 +79,9 @@ grep -q -- '--private-key' bin/steamroller
 grep -q -- '--ssh-key' bin/steamroller
 grep -q -- '-q|--quiet' bin/steamroller
 grep -q -- 'reboot ENVIRONMENT --host HOST' bin/steamroller
+grep -q 'serial: 1' playbooks/20-reboot.yml
+grep -q 'suggested_reboot_command' roles/precheck/tasks/main.yml
+grep -q "% free (" roles/precheck/tasks/main.yml
 grep -q -- 'update ENVIRONMENT --host HOST' bin/steamroller
 grep -q -- '--preserve-postgresql-unit' bin/steamroller
 grep -q -- '-F|--force|--Force' bin/steamroller

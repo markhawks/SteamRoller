@@ -9,7 +9,7 @@
 SteamRoller is an operator-oriented Ansible tool for assessing remote Red Hat
 Enterprise Linux 9 systems from a RHEL 9 or RHEL 10 control node. It provides
 multi-host prechecks, persistent evidence, repository safety controls, and a
-confirmed single-host reboot workflow.
+confirmed sequential multi-host reboot workflow.
 
 Current version: **0.3.0**
 
@@ -23,7 +23,8 @@ Current version: **0.3.0**
 - Satellite Organization, Lifecycle Environment, Content View, and repository evidence;
 - custom `.repo` detection and explicit repository quarantine with local backup;
 - PostgreSQL package, provenance, and available-version reporting;
-- controlled reboot of exactly one inventory host with PRE/POST validation;
+- controlled sequential reboot of one or more selected inventory hosts with
+  per-host PRE/POST validation;
 - interactive DNF update of exactly one inventory host with native confirmation;
 - readable fleet summaries plus per-host text and JSON reports;
 - Bash completion for commands, inventories, hosts, options, and SSH profiles.
@@ -104,16 +105,19 @@ steamroller precheck ORION-LAB --repo-off -q -sk foreman
 This backs up custom `.repo` files locally before moving them beneath
 `/etc/yum.repos.d/SteamRoller-RepoOff/RUN_ID/` on the managed host.
 
-Reboot requires one exact inventory host and interactive confirmation unless
-`--confirm` is supplied:
+Reboot accepts one or more exact inventory hosts and asks for one confirmation
+containing the complete ordered host list unless `--confirm` is supplied:
 
 ```bash
 steamroller reboot ORION-LAB \
   --host velora-db-a01.ops.example \
+  --host velora-db-a02.ops.example \
   -sk foreman
 ```
 
-SteamRoller never interprets reboot as an entire-inventory operation.
+Hosts are rebooted sequentially (`serial: 1`). SteamRoller never interprets
+reboot as an entire-inventory operation; every target must be supplied with
+its own `--host` option.
 
 An update also targets exactly one host. It runs the full precheck first,
 stops on any blocking failure, then displays the native DNF transaction and

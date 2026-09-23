@@ -16,7 +16,7 @@ control node. Its primary workflow is read-only assessment and evidence
 collection. Three changes to managed hosts require explicit operator action:
 
 - quarantine of custom repository files;
-- reboot of one exact inventory host;
+- sequential reboot of explicitly selected inventory hosts;
 - interactive DNF update of one exact inventory host.
 
 Unattended fleet updates, automatic fleet reboot, and cluster/HA orchestration
@@ -32,7 +32,7 @@ steamroller inventory create|add|del|list
 steamroller connectivity ENVIRONMENT
 steamroller precheck ENVIRONMENT
 steamroller repo-off ENVIRONMENT
-steamroller reboot ENVIRONMENT --host HOST
+steamroller reboot ENVIRONMENT --host HOST [--host HOST ...]
 steamroller update ENVIRONMENT --host HOST
 steamroller status
 ```
@@ -108,8 +108,9 @@ always interactive and intentionally does not accept `-q`/`--quiet`.
 
 ### Controlled reboot
 
-- exactly one host selected from the requested inventory;
-- typed interactive confirmation or explicit `--confirm`;
+- one or more explicit hosts selected from the requested inventory;
+- sequential execution enforced with `serial: 1`;
+- typed confirmation containing the ordered host list or explicit `--confirm`;
 - block while `dnf`, `yum`, or `rpm` is active;
 - mandatory mount validation before and after reboot;
 - PRE evidence written before changing state;
@@ -117,6 +118,14 @@ always interactive and intentionally does not accept `-q`/`--quiet`.
 - old/new kernel and uptime comparison;
 - detection of newly failed systemd units;
 - configurable timeout, default 900 seconds.
+
+### Operator guidance
+
+- precheck reports print the complete SteamRoller reboot command when uptime
+  exceeds the configured warning threshold;
+- filesystem usage warnings include percentage used, free MiB, and total MiB;
+- suggested commands retain the environment and SSH key selector used for the
+  precheck.
 
 ### Interactive DNF update
 
@@ -224,6 +233,7 @@ requires validation on a non-production host containing a customized unit.
 - improve failed-systemd-unit classification by unit type;
 - complete RPM build and clean installation testing;
 - validate PostgreSQL unit `backup` and `restore` modes on a non-production host;
+- validate a sequential reboot of multiple selected non-production hosts;
 - implement a dedicated postcheck and PRE/POST maintenance comparison.
 
 ## Explicitly deferred

@@ -1,6 +1,7 @@
 ---
-- name: SteamRoller controlled single-host reboot
+- name: SteamRoller controlled sequential reboot
   hosts: all
+  serial: 1
   gather_facts: true
   become: true
   any_errors_fatal: false

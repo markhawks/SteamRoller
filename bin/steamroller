@@ -32,7 +32,7 @@ usage() {
         'Usage: steamroller precheck ENVIRONMENT [-q|--quiet] [--repo-off] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
         '       steamroller connectivity ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
         '       steamroller repo-off ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
-        '       steamroller reboot ENVIRONMENT --host HOST [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [--confirm] [--timeout SECONDS]' \
+        '       steamroller reboot ENVIRONMENT --host HOST [--host HOST ...] [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [--confirm] [--timeout SECONDS]' \
         '       steamroller update ENVIRONMENT --host HOST [-sk|--ssh-key KEY_OR_PROFILE] [-F|--force] [--preserve-postgresql-unit {backup|restore}]' \
         '       steamroller config [ENVIRONMENT]' \
         '       steamroller inventory {create|add|del|list} [options]' \
@@ -141,6 +141,7 @@ quiet=false
 repo_off_requested=false
 reboot_confirmed=false
 selected_host=""
+selected_hosts=()
 reboot_timeout=900
 postgresql_unit_mode=""
 force_update=false
@@ -161,7 +162,7 @@ while [[ $# -gt 0 ]]; do
                 printf '%s\n' 'Missing inventory hostname after --host.' >&2
                 exit 2
             }
-            selected_host="$2"
+            selected_hosts+=("$2")
             shift 2
             ;;
         --confirm)
@@ -228,16 +229,29 @@ if [[ "$repo_off_requested" == true ]]; then
 fi
 
 if [[ "$action" == "reboot" || "$action" == "update" ]]; then
-    [[ -n "$selected_host" ]] || {
-        printf 'The %s command requires exactly one --host HOST.\n' "$action" >&2
+    [[ ${#selected_hosts[@]} -gt 0 ]] || {
+        printf 'The %s command requires at least one --host HOST.\n' "$action" >&2
         exit 2
     }
-    python3 "${APP_ROOT}/scripts/inventory_hostnames.py" \
-        --inventory "$inventory" --contains "$selected_host" || {
-        printf 'Host is not present in inventory %s: %s\n' "$environment" "$selected_host" >&2
+    if [[ "$action" == "update" && ${#selected_hosts[@]} -ne 1 ]]; then
+        printf '%s\n' 'The update command accepts exactly one --host HOST.' >&2
         exit 2
-    }
-elif [[ -n "$selected_host" || "$reboot_confirmed" == true || "$reboot_timeout" != 900 ]]; then
+    fi
+    declare -A selected_host_seen=()
+    for selected_host_item in "${selected_hosts[@]}"; do
+        if [[ -n "${selected_host_seen[$selected_host_item]:-}" ]]; then
+            printf 'Host was selected more than once: %s\n' "$selected_host_item" >&2
+            exit 2
+        fi
+        selected_host_seen["$selected_host_item"]=1
+        python3 "${APP_ROOT}/scripts/inventory_hostnames.py" \
+            --inventory "$inventory" --contains "$selected_host_item" || {
+            printf 'Host is not present in inventory %s: %s\n' "$environment" "$selected_host_item" >&2
+            exit 2
+        }
+    done
+    selected_host="${selected_hosts[0]}"
+elif [[ ${#selected_hosts[@]} -gt 0 || "$reboot_confirmed" == true || "$reboot_timeout" != 900 ]]; then
     printf '%s\n' '--host, --confirm, and --timeout are valid only with reboot.' >&2
     exit 2
 fi
@@ -279,10 +293,12 @@ if [[ "$action" == "reboot" && "$reboot_confirmed" == false ]]; then
         printf '%s\n' 'Interactive confirmation is unavailable; use --confirm to authorize reboot.' >&2
         exit 2
     }
-    printf 'WARNING: SteamRoller will reboot exactly one host: %s\n' "$selected_host"
-    printf 'Type "REBOOT %s" to continue: ' "$selected_host"
+    printf 'WARNING: SteamRoller will reboot %s host(s), sequentially:\n' "${#selected_hosts[@]}"
+    printf '  %s\n' "${selected_hosts[@]}"
+    reboot_confirmation="REBOOT ${selected_hosts[*]}"
+    printf 'Type "%s" to continue: ' "$reboot_confirmation"
     read -r reboot_answer
-    [[ "$reboot_answer" == "REBOOT ${selected_host}" ]] || {
+    [[ "$reboot_answer" == "$reboot_confirmation" ]] || {
         printf '%s\n' 'Reboot cancelled.'
         exit 1
     }
@@ -343,12 +359,15 @@ if [[ -r "$environment_settings" ]]; then
 fi
 ansible_command+=(
     -e "steamroller_report_root=${REPORT_ROOT}"
-    -e "steamroller_run_id=${run_id}")
+    -e "steamroller_run_id=${run_id}"
+    -e "steamroller_environment=${environment}"
+    -e "steamroller_ssh_key_selector=${ssh_key_selector}")
 if [[ "$repo_off_requested" == true ]]; then
     ansible_command+=(-e "steamroller_repo_off_requested=true")
 fi
 if [[ "$action" == "reboot" ]]; then
-    ansible_command+=(--limit "$selected_host" -e "steamroller_reboot_timeout=${reboot_timeout}")
+    reboot_limit="$(IFS=,; printf '%s' "${selected_hosts[*]}")"
+    ansible_command+=(--limit "$reboot_limit" -e "steamroller_reboot_timeout=${reboot_timeout}")
 fi
 if [[ -n "$ssh_key" ]]; then
     ansible_command+=(--private-key "$ssh_key")
@@ -372,7 +391,9 @@ render_options=(
     --inventory "$inventory"
     --environment "$environment")
 if [[ "$action" == "reboot" ]]; then
-    render_options+=(--expected-host "$selected_host")
+    for selected_host_item in "${selected_hosts[@]}"; do
+        render_options+=(--expected-host "$selected_host_item")
+    done
 fi
 python3 "${APP_ROOT}/scripts/render_summary.py" "${render_options[@]}" || render_rc=$?
 
