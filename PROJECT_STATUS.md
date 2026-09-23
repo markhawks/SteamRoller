@@ -1,10 +1,10 @@
 # SteamRoller Project Status
 
-Last updated: 2026-09-22
+Last updated: 2026-09-23
 
 Current version: **0.2.0**
 
-Status: active development and real-system validation
+Status: version 0.2.0 validated on real RHEL 9 systems; active development
 
 License: AGPL-3.0-or-later
 
@@ -160,10 +160,15 @@ Configuration is validated before contacting managed hosts.
 - SSH-key discovery and Bash completion tests;
 - multi-host precheck on real Satellite-managed RHEL 9 systems;
 - Satellite Simple Content Access behavior;
-- repository quarantine and PostgreSQL terminal rendering.
+- repository quarantine, including the opt-in precheck workflow;
+- PostgreSQL package provenance and update reporting;
+- managed SSH profiles and quiet-mode execution;
+- controlled single-host reboot on a real non-production system;
+- successful SSH return, boot-ID change, kernel comparison, mandatory-mount
+  checks, and PRE/POST reboot reporting.
 
-No real reboot was performed by the development environment when the reboot
-workflow was introduced; customer-side controlled validation remains required.
+The complete 0.2.0 workflow has been exercised successfully by the operator,
+including the controlled reboot path.
 
 ## Security model
 
@@ -177,7 +182,6 @@ workflow was introduced; customer-side controlled validation remains required.
 
 ## Remaining work
 
-- validate controlled reboot on real non-production hosts;
 - expand negative-path testing for DNF locks, damaged RPM state, missing mounts,
   inode exhaustion, and hosts that do not return after reboot;
 - validate source installation from clean RHEL 9 and RHEL 10 control nodes;
