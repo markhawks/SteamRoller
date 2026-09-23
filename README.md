@@ -11,7 +11,7 @@ Enterprise Linux 9 systems from a RHEL 9 or RHEL 10 control node. It provides
 multi-host prechecks, persistent evidence, repository safety controls, and a
 confirmed single-host reboot workflow.
 
-Current version: **0.2.0**
+Current version: **0.3.0**
 
 ## Highlights
 
@@ -219,6 +219,7 @@ steamroller config ENVIRONMENT
 
 - [Complete command HOWTO](docs/HOWTO.md)
 - [Project status](PROJECT_STATUS.md)
+- [Version 0.3.0 release notes](docs/RELEASE_NOTES_0.3.0.md)
 - [Version 0.2.0 release notes](docs/RELEASE_NOTES_0.2.0.md)
 - [Manual setup utilities](setup/README.md)
 
@@ -235,7 +236,7 @@ steamroller config ENVIRONMENT
 ```
 
 RPM production and installation validation remain deferred until the
-source-based 0.2 series is accepted on real customer systems.
+source-based 0.3 series is accepted on real customer systems.
 
 ## License
 

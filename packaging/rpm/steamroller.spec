@@ -1,5 +1,5 @@
 Name:           steamroller
-Version:        0.2.0
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        Safe RHEL 9 remote patching precheck automation
 License:        AGPL-3.0-or-later
@@ -15,8 +15,9 @@ Requires:       python3-pyyaml
 
 %description
 SteamRoller provides conservative, auditable Ansible workflows for RHEL 9
-managed hosts. This release contains read-only connectivity and precheck
-automation. The control node may run RHEL 9 or RHEL 10.
+managed hosts, including assessment, interactive single-host package updates,
+controlled reboot, and persistent evidence. The control node may run RHEL 9
+or RHEL 10.
 
 %prep
 %autosetup
@@ -70,6 +71,10 @@ ln -s /opt/steamroller/bin/steamroller %{buildroot}%{_bindir}/steamroller
 %dir %{_localstatedir}/log/steamroller
 
 %changelog
+* Wed Sep 23 2026 SteamRoller Team <root@localhost> - 0.3.0-1
+- Add interactive single-host DNF update, audited force mode, PostgreSQL unit
+  protection, post-update validation, and suggested reboot command
+
 * Tue Sep 22 2026 SteamRoller Team <root@localhost> - 0.2.0-1
 - Add inventory management, Satellite and PostgreSQL checks, repository
   quarantine integration, SSH profiles, Bash completion, and controlled reboot
