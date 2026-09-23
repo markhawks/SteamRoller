@@ -80,7 +80,7 @@ _steamroller() {
     action="${COMP_WORDS[1]:-}"
 
     if (( COMP_CWORD == 1 )); then
-        COMPREPLY=( $(compgen -W 'precheck connectivity repo-off reboot config inventory doctor status version' -- "$current") )
+        COMPREPLY=( $(compgen -W 'precheck connectivity repo-off reboot update config inventory doctor status version' -- "$current") )
         return
     fi
 
@@ -112,6 +112,17 @@ _steamroller() {
                 COMPREPLY=( $(compgen -W "$(_steamroller_inventories)" -- "$current") )
             else
                 COMPREPLY=( $(compgen -W '--host -q --quiet -sk --ssh-key --confirm --timeout' -- "$current") )
+            fi
+            ;;
+        update)
+            if [[ "$previous" == "-sk" || "$previous" == "--ssh-key" ]]; then
+                COMPREPLY=( $(compgen -W "$(_steamroller_key_profiles)" -- "$current") )
+            elif [[ "$previous" == "--host" ]]; then
+                COMPREPLY=( $(compgen -W "$(_steamroller_inventory_hosts "${COMP_WORDS[2]:-}")" -- "$current") )
+            elif (( COMP_CWORD == 2 )); then
+                COMPREPLY=( $(compgen -W "$(_steamroller_inventories)" -- "$current") )
+            else
+                COMPREPLY=( $(compgen -W '--host -sk --ssh-key' -- "$current") )
             fi
             ;;
         inventory)

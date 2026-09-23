@@ -17,6 +17,8 @@ def run_time(run_id: str) -> str:
 
 
 def run_type(directory: Path) -> str:
+    if (directory / "update-postcheck.txt").is_file():
+        return "DNF-UPDATE"
     if (directory / "reboot.txt").is_file():
         return "REBOOT"
     if (directory / "reboot-pre.txt").is_file():
@@ -78,6 +80,7 @@ def main() -> int:
     connectivity_servers = sorted({row[0] for row in rows if row[3] == "CONNECTIVITY"})
     precheck_servers = sorted({row[0] for row in rows if row[3] == "PRECHECK"})
     reboot_servers = sorted({row[0] for row in rows if row[3] == "REBOOT"})
+    update_servers = sorted({row[0] for row in rows if row[3] == "DNF-UPDATE"})
     if connectivity_servers:
         print()
         print("CONNECTIVITY directories: " + ", ".join(connectivity_servers))
@@ -85,6 +88,8 @@ def main() -> int:
         print("PRECHECK report directories: " + ", ".join(precheck_servers))
     if reboot_servers:
         print("REBOOT report directories: " + ", ".join(reboot_servers))
+    if update_servers:
+        print("DNF-UPDATE report directories: " + ", ".join(update_servers))
     return 0
 
 

@@ -24,11 +24,12 @@ Current version: **0.2.0**
 - custom `.repo` detection and explicit repository quarantine with local backup;
 - PostgreSQL package, provenance, and available-version reporting;
 - controlled reboot of exactly one inventory host with PRE/POST validation;
+- interactive DNF update of exactly one inventory host with native confirmation;
 - readable fleet summaries plus per-host text and JSON reports;
 - Bash completion for commands, inventories, hosts, options, and SSH profiles.
 
-SteamRoller does **not** install package updates, change Satellite assignments,
-or coordinate clusters and HA applications.
+SteamRoller does **not** perform unattended fleet updates, change Satellite
+assignments, or coordinate clusters and HA applications.
 
 ## Requirements
 
@@ -114,6 +115,20 @@ steamroller reboot ORION-LAB \
 
 SteamRoller never interprets reboot as an entire-inventory operation.
 
+An update also targets exactly one host. It runs the full precheck first,
+stops on any blocking failure, then displays the native DNF transaction and
+requires the operator to answer DNF's `Is this ok [y/N]` prompt:
+
+```bash
+steamroller update ORION-LAB \
+  --host velora-db-a01.ops.example \
+  -sk foreman
+```
+
+The update command requires an interactive terminal, has no quiet mode, saves
+the DNF transaction log, performs post-update validation, and never reboots
+the host automatically.
+
 ## Reports
 
 Source checkouts store reports beneath:
@@ -124,8 +139,9 @@ reports/SERVER_NAME/RUN_ID/
 
 Precheck evidence includes `precheck.txt`, `summary.json`, `checks.json`,
 filesystem, mount, kernel, network, repository, Satellite, systemd, update, and
-PostgreSQL details. Reboot runs preserve evidence before reboot and create a
-POST validation report after the host returns.
+PostgreSQL details. Update runs add the complete DNF transaction and postcheck;
+reboot runs preserve evidence before reboot and create a POST validation
+report after the host returns.
 
 List runs with:
 

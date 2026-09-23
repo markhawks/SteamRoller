@@ -266,7 +266,47 @@ def main() -> int:
             print(f"  Reboot duration: {row.get('duration_seconds', '-')} seconds")
             print(f"  Report: {row.get('report_dir', '-')}")
 
-    detailed_rows = [row for row in rows if row.get("os") or row.get("disk_space")]
+    update_rows = [row for row in rows if row.get("operation") == "dnf_update"]
+    if update_rows:
+        print()
+        print(f"{palette.bold}DNF UPDATE DETAILS{palette.reset}")
+        for row in update_rows:
+            server = row.get("fqdn") or row.get("host")
+            status = str(row.get("status", "FAIL"))
+            update = row.get("dnf_update", {}) or {}
+            kernel = row.get("kernel", {}) or {}
+            updates = row.get("updates", {}) or {}
+            new_failed = list(update.get("new_failed_units", []) or [])
+            cancelled = bool(update.get("cancelled", False))
+            print()
+            print(f"{palette.bold}{server}{palette.reset} [{palette.status(status)}]")
+            print(f"  Packages available before: {updates.get('before', '-')}")
+            print(f"  Packages remaining: {updates.get('remaining', '-')}")
+            print(f"  Transaction exit code: {update.get('transaction_exit_code', '-')}")
+            print(f"  Cancelled by operator: {'yes' if cancelled else 'no'}")
+            print(f"  Previous running kernel: {kernel.get('previous') or '-'}")
+            print(f"  Current running kernel: {kernel.get('running') or '-'}")
+            print(f"  Newest installed kernel: {kernel.get('newest_installed') or '-'}")
+            print(
+                "  DNF package check: "
+                f"{palette.status('PASS' if update.get('dnf_check_exit_code') == 0 else 'FAIL')}"
+            )
+            print(f"  Reboot required: {'yes' if update.get('reboot_required') else 'no'}")
+            print("  New failed services:")
+            if new_failed:
+                for service in new_failed:
+                    print(f"    [{palette.status('FAIL')}] {service_name(service)}")
+            else:
+                print(f"    [{palette.status('PASS')}] none")
+            print(f"  Transaction log: {update.get('transaction_log') or '-'}")
+            print(f"  Duration: {row.get('duration_seconds', '-')} seconds")
+            print(f"  Report: {row.get('report_dir', '-')}")
+
+    detailed_rows = [
+        row for row in rows
+        if row.get("operation") != "dnf_update"
+        and (row.get("os") or row.get("disk_space"))
+    ]
     if detailed_rows:
         print()
         print(f"{palette.bold}HOST DETAILS{palette.reset}")

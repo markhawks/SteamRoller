@@ -28,6 +28,7 @@ required_files=(
     scripts/manage_inventory.py
     scripts/resolve_ssh_key.py
     scripts/inventory_hostnames.py
+    scripts/run_dnf_update.py
     scripts/test_satellite_check.sh
     setup/manual/install-source-path.sh
     setup/README.md
@@ -36,6 +37,7 @@ required_files=(
     docs/HOWTO.md
     docs/RELEASE_NOTES_0.2.0.md
     packaging/rpm/steamroller.spec
+    tests/test_dnf_update.py
 )
 
 for required_file in "${required_files[@]}"; do
@@ -76,6 +78,7 @@ grep -q -- '--private-key' bin/steamroller
 grep -q -- '--ssh-key' bin/steamroller
 grep -q -- '-q|--quiet' bin/steamroller
 grep -q -- 'reboot ENVIRONMENT --host HOST' bin/steamroller
+grep -q -- 'update ENVIRONMENT --host HOST' bin/steamroller
 grep -q 'POSTGRESQL DETAILS' roles/precheck/templates/precheck.txt.j2
 grep -q 'postgresql.txt' roles/precheck/tasks/main.yml
 grep -qx '0.2.0' VERSION
@@ -94,8 +97,10 @@ python3 -m py_compile scripts/list_reports.py
 python3 -m py_compile scripts/manage_inventory.py
 python3 -m py_compile scripts/resolve_ssh_key.py
 python3 -m py_compile scripts/inventory_hostnames.py
+python3 -m py_compile scripts/run_dnf_update.py
 python3 scripts/inventory_hostnames.py --inventory inventories/dev/hosts.yml | grep -q .
 python3 -m unittest tests/test_inventory_manager.py
 python3 -m unittest tests/test_ssh_key_resolver.py
+python3 -m unittest tests/test_dnf_update.py
 
 printf 'Static checks passed.\n'

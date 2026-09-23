@@ -12,12 +12,14 @@ License: AGPL-3.0-or-later
 
 SteamRoller 0.2.0 manages remote RHEL 9.x hosts from a RHEL 9 or RHEL 10
 control node. Its primary workflow is read-only assessment and evidence
-collection. Two changes to managed hosts require explicit operator action:
+collection. Three changes to managed hosts require explicit operator action:
 
 - quarantine of custom repository files;
-- reboot of one exact inventory host.
+- reboot of one exact inventory host;
+- interactive DNF update of one exact inventory host.
 
-Package updates, automatic fleet reboot, and cluster/HA orchestration are not implemented.
+Unattended fleet updates, automatic fleet reboot, and cluster/HA orchestration
+are not implemented.
 
 ## Implemented commands
 
@@ -30,11 +32,13 @@ steamroller connectivity ENVIRONMENT
 steamroller precheck ENVIRONMENT
 steamroller repo-off ENVIRONMENT
 steamroller reboot ENVIRONMENT --host HOST
+steamroller update ENVIRONMENT --host HOST
 steamroller status
 ```
 
 All operational commands support persistent reporting. Connectivity, precheck,
-repository quarantine, and reboot accept SSH key profiles and `-q`/`--quiet`.
+repository quarantine, reboot, and update accept SSH key profiles. Update is
+always interactive and intentionally does not accept `-q`/`--quiet`.
 
 ## Implemented validation
 
@@ -106,11 +110,24 @@ repository quarantine, and reboot accept SSH key profiles and `-q`/`--quiet`.
 - detection of newly failed systemd units;
 - configurable timeout, default 900 seconds.
 
+### Interactive DNF update
+
+- exactly one host selected from the requested inventory;
+- complete precheck executed immediately before updating;
+- blocking precheck failures stop the operation;
+- native `dnf upgrade` transaction displayed through an SSH pseudo-terminal;
+- package installation requires the native DNF `Is this ok [y/N]` answer;
+- complete transaction log and DNF history evidence;
+- remaining updates, kernel state, `dnf check`, reboot requirement, and newly
+  failed systemd units checked after the transaction;
+- no automatic reboot.
+
 ## Reporting
 
 Each run uses an immutable UTC run ID and per-server directory. The terminal
 summary covers every expected host, including unreachable hosts. Reports are
-classified as `CONNECTIVITY`, `PRECHECK`, `REPO-OFF`, `REBOOT`, or incomplete.
+classified as `CONNECTIVITY`, `PRECHECK`, `REPO-OFF`, `REBOOT`, `DNF-UPDATE`,
+or incomplete.
 
 A typical precheck report contains:
 

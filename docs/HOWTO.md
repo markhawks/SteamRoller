@@ -302,14 +302,40 @@ Safety behavior:
 
 There is no `--all` reboot option in version 0.2.0.
 
-## 13. Report status
+## 13. Interactive single-host DNF update
+
+```bash
+steamroller update ORION-LAB \
+  --host velora-db-a01.ops.example \
+  -sk foreman
+```
+
+The environment and host are available through Bash completion. Update accepts
+one exact inventory host only and requires a real interactive terminal. It does
+not support `-q`, `--quiet`, or an automatic confirmation option.
+
+SteamRoller first executes the complete precheck against the selected host. A
+precheck `FAIL` stops the operation; `PASS` and reviewed `WARNING` results may
+continue. DNF then displays its normal package transaction and asks:
+
+```text
+Is this ok [y/N]:
+```
+
+Answer `y` to authorize package changes or press Enter/answer `n` to cancel.
+Afterward SteamRoller records the transaction, DNF history, remaining updates,
+kernel state, reboot requirement, package consistency, and newly failed
+systemd units. It never reboots automatically.
+
+## 14. Report status
 
 ```bash
 steamroller status
 ```
 
 Shows server, local execution time, UTC run ID, and operation type. Types
-include `CONNECTIVITY`, `PRECHECK`, `REPO-OFF`, `REBOOT`, and incomplete runs.
+include `CONNECTIVITY`, `PRECHECK`, `REPO-OFF`, `REBOOT`, `DNF-UPDATE`, and
+incomplete runs.
 
 Reports from a source checkout are stored in:
 
@@ -317,7 +343,7 @@ Reports from a source checkout are stored in:
 reports/SERVER_NAME/RUN_ID/
 ```
 
-## 14. Satellite environment expectations
+## 15. Satellite environment expectations
 
 Create an optional environment configuration:
 
@@ -345,7 +371,7 @@ An empty expected consumer name means that each discovered Satellite consumer
 name is compared automatically with that host's FQDN. Both values and the
 validation mode remain visible in the report.
 
-## 15. Standalone Satellite diagnostic
+## 16. Standalone Satellite diagnostic
 
 Run directly on a managed host:
 
@@ -356,11 +382,12 @@ sudo ./scripts/test_satellite_check.sh
 This is a focused diagnostic. The normal remote workflow is `steamroller
 precheck`.
 
-## 16. Exit behavior
+## 17. Exit behavior
 
 - `0`: requested operation and fleet result succeeded;
 - non-zero: invalid local configuration, unreachable host, failed check,
-  cancelled reboot, Ansible failure, or failed post-operation validation.
+  cancelled reboot or update, Ansible failure, or failed post-operation
+  validation.
 
 Always inspect the final summary and referenced report directory before
 continuing with maintenance.

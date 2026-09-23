@@ -33,6 +33,7 @@ usage() {
         '       steamroller connectivity ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
         '       steamroller repo-off ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
         '       steamroller reboot ENVIRONMENT --host HOST [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [--confirm] [--timeout SECONDS]' \
+        '       steamroller update ENVIRONMENT --host HOST [-sk|--ssh-key KEY_OR_PROFILE]' \
         '       steamroller config [ENVIRONMENT]' \
         '       steamroller inventory {create|add|del|list} [options]' \
         '       steamroller doctor ENVIRONMENT' \
@@ -63,7 +64,7 @@ if [[ "$action" == "config" && $# -eq 0 ]]; then
     set -- dev
 fi
 
-[[ "$action" == "precheck" || "$action" == "connectivity" || "$action" == "repo-off" || "$action" == "reboot" || "$action" == "config" || "$action" == "doctor" ]] || {
+[[ "$action" == "precheck" || "$action" == "connectivity" || "$action" == "repo-off" || "$action" == "reboot" || "$action" == "update" || "$action" == "config" || "$action" == "doctor" ]] || {
     usage >&2
     exit 2
 }
@@ -133,12 +134,13 @@ case "$action" in
     precheck) playbook="10-precheck.yml" ;;
     repo-off) playbook="15-repo-off.yml" ;;
     reboot) playbook="20-reboot.yml" ;;
+    update) playbook="" ;;
 esac
 
 quiet=false
 repo_off_requested=false
 reboot_confirmed=false
-reboot_host=""
+selected_host=""
 reboot_timeout=900
 ssh_key="${STEAMROLLER_SSH_KEY:-}"
 ansible_options=()
@@ -157,7 +159,7 @@ while [[ $# -gt 0 ]]; do
                 printf '%s\n' 'Missing inventory hostname after --host.' >&2
                 exit 2
             }
-            reboot_host="$2"
+            selected_host="$2"
             shift 2
             ;;
         --confirm)
@@ -207,19 +209,34 @@ if [[ "$repo_off_requested" == true ]]; then
     playbook="11-precheck-repo-off.yml"
 fi
 
-if [[ "$action" == "reboot" ]]; then
-    [[ -n "$reboot_host" ]] || {
-        printf '%s\n' 'The reboot command requires exactly one --host HOST.' >&2
+if [[ "$action" == "reboot" || "$action" == "update" ]]; then
+    [[ -n "$selected_host" ]] || {
+        printf 'The %s command requires exactly one --host HOST.\n' "$action" >&2
         exit 2
     }
     python3 "${APP_ROOT}/scripts/inventory_hostnames.py" \
-        --inventory "$inventory" --contains "$reboot_host" || {
-        printf 'Host is not present in inventory %s: %s\n' "$environment" "$reboot_host" >&2
+        --inventory "$inventory" --contains "$selected_host" || {
+        printf 'Host is not present in inventory %s: %s\n' "$environment" "$selected_host" >&2
         exit 2
     }
-elif [[ -n "$reboot_host" || "$reboot_confirmed" == true || "$reboot_timeout" != 900 ]]; then
+elif [[ -n "$selected_host" || "$reboot_confirmed" == true || "$reboot_timeout" != 900 ]]; then
     printf '%s\n' '--host, --confirm, and --timeout are valid only with reboot.' >&2
     exit 2
+fi
+
+if [[ "$action" == "update" ]]; then
+    [[ "$quiet" == false ]] || {
+        printf '%s\n' 'The update command is interactive and does not support -q/--quiet.' >&2
+        exit 2
+    }
+    [[ "$reboot_confirmed" == false && "$reboot_timeout" == 900 ]] || {
+        printf '%s\n' '--confirm and --timeout are valid only with reboot.' >&2
+        exit 2
+    }
+    [[ ${#ansible_options[@]} -eq 0 ]] || {
+        printf '%s\n' 'The update command does not accept additional ansible-playbook options.' >&2
+        exit 2
+    }
 fi
 
 ssh_key_options=(--key-root "$SSH_KEY_ROOT")
@@ -232,14 +249,15 @@ if [[ "$action" == "reboot" && "$reboot_confirmed" == false ]]; then
         printf '%s\n' 'Interactive confirmation is unavailable; use --confirm to authorize reboot.' >&2
         exit 2
     }
-    printf 'WARNING: SteamRoller will reboot exactly one host: %s\n' "$reboot_host"
-    printf 'Type "REBOOT %s" to continue: ' "$reboot_host"
+    printf 'WARNING: SteamRoller will reboot exactly one host: %s\n' "$selected_host"
+    printf 'Type "REBOOT %s" to continue: ' "$selected_host"
     read -r reboot_answer
-    [[ "$reboot_answer" == "REBOOT ${reboot_host}" ]] || {
+    [[ "$reboot_answer" == "REBOOT ${selected_host}" ]] || {
         printf '%s\n' 'Reboot cancelled.'
         exit 1
     }
 fi
+
 ssh_key="$(python3 "${APP_ROOT}/scripts/resolve_ssh_key.py" "${ssh_key_options[@]}")"
 if [[ -n "$ssh_key" ]]; then
     [[ -r "$ssh_key" ]] || {
@@ -247,6 +265,29 @@ if [[ -n "$ssh_key" ]]; then
         exit 2
     }
     printf 'SSH key: %s\n' "$ssh_key"
+fi
+
+if [[ "$action" == "update" ]]; then
+    [[ -t 0 && -t 1 ]] || {
+        printf '%s\n' 'The update command requires an interactive terminal for the native DNF confirmation.' >&2
+        exit 2
+    }
+    export ANSIBLE_CONFIG="$STEAMROLLER_ANSIBLE_CONFIG"
+    update_command=(python3 "${APP_ROOT}/scripts/run_dnf_update.py"
+        --inventory "$inventory"
+        --settings "$SETTINGS_FILE"
+        --environment "$environment"
+        --host "$selected_host"
+        --report-root "$REPORT_ROOT"
+        --precheck-playbook "${APP_ROOT}/playbooks/10-precheck.yml"
+        --renderer "${APP_ROOT}/scripts/render_summary.py")
+    if [[ -r "$environment_settings" ]]; then
+        update_command+=(--environment-settings "$environment_settings")
+    fi
+    if [[ -n "$ssh_key" ]]; then
+        update_command+=(--ssh-key "$ssh_key")
+    fi
+    exec "${update_command[@]}"
 fi
 
 run_id="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -268,7 +309,7 @@ if [[ "$repo_off_requested" == true ]]; then
     ansible_command+=(-e "steamroller_repo_off_requested=true")
 fi
 if [[ "$action" == "reboot" ]]; then
-    ansible_command+=(--limit "$reboot_host" -e "steamroller_reboot_timeout=${reboot_timeout}")
+    ansible_command+=(--limit "$selected_host" -e "steamroller_reboot_timeout=${reboot_timeout}")
 fi
 if [[ -n "$ssh_key" ]]; then
     ansible_command+=(--private-key "$ssh_key")
@@ -292,7 +333,7 @@ render_options=(
     --inventory "$inventory"
     --environment "$environment")
 if [[ "$action" == "reboot" ]]; then
-    render_options+=(--expected-host "$reboot_host")
+    render_options+=(--expected-host "$selected_host")
 fi
 python3 "${APP_ROOT}/scripts/render_summary.py" "${render_options[@]}" || render_rc=$?
 

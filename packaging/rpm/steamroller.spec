@@ -40,6 +40,7 @@ install -m 0755 scripts/list_reports.py %{buildroot}/opt/steamroller/scripts/lis
 install -m 0755 scripts/manage_inventory.py %{buildroot}/opt/steamroller/scripts/manage_inventory.py
 install -m 0755 scripts/resolve_ssh_key.py %{buildroot}/opt/steamroller/scripts/resolve_ssh_key.py
 install -m 0755 scripts/inventory_hostnames.py %{buildroot}/opt/steamroller/scripts/inventory_hostnames.py
+install -m 0755 scripts/run_dnf_update.py %{buildroot}/opt/steamroller/scripts/run_dnf_update.py
 install -m 0644 VERSION README.md %{buildroot}/opt/steamroller/
 install -m 0644 completions/steamroller.bash \
     %{buildroot}%{_datadir}/bash-completion/completions/steamroller
