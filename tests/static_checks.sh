@@ -37,6 +37,7 @@ required_files=(
     docs/HOWTO.md
     docs/RELEASE_NOTES_0.2.0.md
     docs/RELEASE_NOTES_0.3.0.md
+    docs/RELEASE_NOTES_0.3.1.md
     packaging/rpm/steamroller.spec
     tests/test_dnf_update.py
 )
@@ -88,9 +89,9 @@ grep -q -- '-F|--force|--Force' bin/steamroller
 grep -q 'Suggested reboot command' scripts/render_summary.py
 grep -q 'POSTGRESQL DETAILS' roles/precheck/templates/precheck.txt.j2
 grep -q 'postgresql.txt' roles/precheck/tasks/main.yml
-grep -qx '0.3.0' VERSION
-grep -q '^Version:[[:space:]]*0.3.0$' packaging/rpm/steamroller.spec
-grep -q 'Current version: \*\*0.3.0\*\*' README.md
+grep -qx '0.3.1' VERSION
+grep -q '^Version:[[:space:]]*0.3.1$' packaging/rpm/steamroller.spec
+grep -q 'Current version: \*\*0.3.1\*\*' README.md
 [[ -x setup/manual/install-source-path.sh ]]
 
 bash -n bin/steamroller

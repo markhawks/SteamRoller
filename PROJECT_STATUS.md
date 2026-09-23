@@ -2,10 +2,10 @@
 
 Last updated: 2026-09-23
 
-Current version: **0.3.0**
+Current version: **0.3.1**
 
-Status: version 0.3.0 released after successful real-system update testing;
-active development continues
+Status: version 0.3.1 released; core update and single-host reboot workflows
+validated on real RHEL 9 systems, with multi-host reboot validation pending
 
 License: AGPL-3.0-or-later
 
@@ -210,7 +210,7 @@ Configuration is validated before contacting managed hosts.
 - native DNF terminal display and manual confirmation;
 - automated tests for PostgreSQL unit detection and update-option completion.
 
-The 0.3.0 workflow, including interactive DNF update and controlled force mode,
+The 0.3.1 workflow, including interactive DNF update and controlled force mode,
 has been exercised successfully by the operator. PostgreSQL unit restoration still
 requires validation on a non-production host containing a customized unit.
 

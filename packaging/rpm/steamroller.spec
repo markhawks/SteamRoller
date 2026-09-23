@@ -1,5 +1,5 @@
 Name:           steamroller
-Version:        0.3.0
+Version:        0.3.1
 Release:        1%{?dist}
 Summary:        Safe RHEL 9 remote patching precheck automation
 License:        AGPL-3.0-or-later
@@ -71,6 +71,10 @@ ln -s /opt/steamroller/bin/steamroller %{buildroot}%{_bindir}/steamroller
 %dir %{_localstatedir}/log/steamroller
 
 %changelog
+* Wed Sep 23 2026 SteamRoller Team <root@localhost> - 0.3.1-1
+- Add sequential multi-host reboot, uptime-based reboot command guidance, and
+  percentage/free-space details for filesystem warnings
+
 * Wed Sep 23 2026 SteamRoller Team <root@localhost> - 0.3.0-1
 - Add interactive single-host DNF update, audited force mode, PostgreSQL unit
   protection, post-update validation, and suggested reboot command
