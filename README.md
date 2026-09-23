@@ -127,7 +127,8 @@ steamroller update ORION-LAB \
 
 The update command requires an interactive terminal, has no quiet mode, saves
 the DNF transaction log, performs post-update validation, and never reboots
-the host automatically.
+the host automatically. Its final summary prints the complete SteamRoller
+reboot command for that host.
 
 For legacy installations that modified the vendor PostgreSQL systemd unit,
 SteamRoller can preserve it during the update:

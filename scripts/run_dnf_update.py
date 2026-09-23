@@ -9,6 +9,7 @@ import difflib
 import json
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -216,6 +217,7 @@ def main() -> int:
     parser.add_argument("--environment", required=True)
     parser.add_argument("--host", required=True)
     parser.add_argument("--ssh-key")
+    parser.add_argument("--ssh-key-selector")
     parser.add_argument("--report-root", required=True)
     parser.add_argument("--precheck-playbook", required=True)
     parser.add_argument("--renderer", required=True)
@@ -228,6 +230,12 @@ def main() -> int:
         variables = inventory_hostvars(args.inventory, args.host)
         precheck, report_dir = run_precheck(args, run_id)
         fqdn = str(precheck.get("fqdn") or args.host)
+        reboot_command_parts = [
+            "steamroller", "reboot", args.environment, "--host", args.host,
+        ]
+        if args.ssh_key_selector:
+            reboot_command_parts.extend(["-sk", args.ssh_key_selector])
+        reboot_command = shlex.join(reboot_command_parts)
         updates_before = int((precheck.get("updates", {}) or {}).get("total", 0))
         old_kernel = str((precheck.get("kernel", {}) or {}).get("running", ""))
         planned_kernel = str((precheck.get("kernel", {}) or {}).get("planned", ""))
@@ -436,6 +444,7 @@ def main() -> int:
                 "new_failed_units": new_failed,
                 "history": history.stdout,
                 "transaction_log": str(transaction_log),
+                "suggested_reboot_command": reboot_command,
                 "postgresql_unit": {
                     "mode": args.postgresql_unit_mode or "disabled",
                     "path": POSTGRESQL_UNIT,
@@ -475,6 +484,7 @@ def main() -> int:
             f"{'yes' if postgresql_before.get('customized') else 'no'}\n"
             f"PostgreSQL unit restored: {'yes' if postgresql_restored else 'no'}\n"
             f"PostgreSQL restore validation: {postgresql_restore_validation}\n\n"
+            f"Suggested reboot command: {reboot_command}\n\n"
             "DNF HISTORY LAST\n"
             f"{history.stdout}\n{history.stderr}",
             encoding="utf-8",

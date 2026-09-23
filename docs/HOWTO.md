@@ -325,7 +325,9 @@ Is this ok [y/N]:
 Answer `y` to authorize package changes or press Enter/answer `n` to cancel.
 Afterward SteamRoller records the transaction, DNF history, remaining updates,
 kernel state, reboot requirement, package consistency, and newly failed
-systemd units. It never reboots automatically.
+systemd units. It never reboots automatically. The final report prints a
+complete interactive `steamroller reboot` command for the updated host,
+including the SSH key selector when one was supplied.
 
 ### Protect a customized PostgreSQL systemd unit
 

@@ -263,6 +263,7 @@ ssh_key_options=(--key-root "$SSH_KEY_ROOT")
 if [[ -n "$ssh_key" ]]; then
     ssh_key_options+=(--selector "$ssh_key")
 fi
+ssh_key_selector="$ssh_key"
 
 if [[ "$action" == "reboot" && "$reboot_confirmed" == false ]]; then
     [[ -t 0 ]] || {
@@ -306,6 +307,9 @@ if [[ "$action" == "update" ]]; then
     fi
     if [[ -n "$ssh_key" ]]; then
         update_command+=(--ssh-key "$ssh_key")
+    fi
+    if [[ -n "$ssh_key_selector" ]]; then
+        update_command+=(--ssh-key-selector "$ssh_key_selector")
     fi
     if [[ -n "$postgresql_unit_mode" ]]; then
         update_command+=(--postgresql-unit-mode "$postgresql_unit_mode")

@@ -129,6 +129,7 @@ always interactive and intentionally does not accept `-q`/`--quiet`.
 - optional PostgreSQL vendor-unit backup, comparison, and explicit restoration;
 - remaining updates, kernel state, `dnf check`, reboot requirement, and newly
   failed systemd units checked after the transaction;
+- complete suggested SteamRoller reboot command in the final report;
 - no automatic reboot.
 
 ## Reporting

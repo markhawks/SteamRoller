@@ -80,6 +80,7 @@ grep -q -- '-q|--quiet' bin/steamroller
 grep -q -- 'reboot ENVIRONMENT --host HOST' bin/steamroller
 grep -q -- 'update ENVIRONMENT --host HOST' bin/steamroller
 grep -q -- '--preserve-postgresql-unit' bin/steamroller
+grep -q 'Suggested reboot command' scripts/render_summary.py
 grep -q 'POSTGRESQL DETAILS' roles/precheck/templates/precheck.txt.j2
 grep -q 'postgresql.txt' roles/precheck/tasks/main.yml
 grep -qx '0.2.0' VERSION

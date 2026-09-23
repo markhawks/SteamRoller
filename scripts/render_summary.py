@@ -319,6 +319,10 @@ def main() -> int:
                         "    Restore validation: "
                         f"{postgresql_unit.get('restore_validation') or '-'}"
                     )
+            print(
+                "  Suggested reboot command: "
+                f"{update.get('suggested_reboot_command') or '-'}"
+            )
             print(f"  Duration: {row.get('duration_seconds', '-')} seconds")
             print(f"  Report: {row.get('report_dir', '-')}")
 
