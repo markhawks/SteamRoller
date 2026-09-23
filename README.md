@@ -219,6 +219,10 @@ Display effective settings with:
 steamroller config ENVIRONMENT
 ```
 
+Default uptime thresholds are 30 days for `WARNING`, 90 days for
+`HIGH WARNING`, and 200 days for `CRITICAL WARNING`. From the first warning
+threshold, precheck reports include a complete suggested reboot command.
+
 ## Documentation
 
 - [Complete command HOWTO](docs/HOWTO.md)

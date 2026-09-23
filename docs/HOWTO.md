@@ -179,6 +179,18 @@ Global settings are loaded from `config/steamroller.yml`. Optional settings in
 environment. Runtime-protected values such as report root and run ID cannot be
 overridden by the environment file.
 
+Default uptime levels are:
+
+```yaml
+steamroller_uptime_warning_days: 30
+steamroller_uptime_high_days: 90
+steamroller_uptime_critical_days: 200
+```
+
+The precheck reports `WARNING` from day 30, `HIGH WARNING` from day 90, and
+`CRITICAL WARNING` from day 200. Every non-PASS uptime level includes the
+complete suggested SteamRoller reboot command.
+
 ## 8. Connectivity
 
 ```bash

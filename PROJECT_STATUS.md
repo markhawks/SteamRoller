@@ -56,7 +56,7 @@ always interactive and intentionally does not accept `-q`/`--quiet`.
 
 - RHEL 9.x managed-host policy;
 - running, installed, newest installed, and planned kernels;
-- uptime severity at 90, 180, and 365 days;
+- uptime severity at 30, 90, and 200 days;
 - update totals for kernel, systemd, and glibc;
 - pre-existing reboot requirement.
 
@@ -182,9 +182,9 @@ steamroller_root_min_free_mb: 4096
 steamroller_boot_min_free_mb: 400
 steamroller_inode_warning_percent: 80
 steamroller_inode_failure_percent: 95
-steamroller_uptime_warning_days: 90
-steamroller_uptime_high_days: 180
-steamroller_uptime_critical_days: 365
+steamroller_uptime_warning_days: 30
+steamroller_uptime_high_days: 90
+steamroller_uptime_critical_days: 200
 steamroller_custom_repo_policy: fail
 steamroller_allowed_repo_files:
   - redhat.repo

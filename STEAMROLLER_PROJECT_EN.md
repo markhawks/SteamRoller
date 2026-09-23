@@ -83,7 +83,7 @@ Running kernel older than newest installed kernel = warning.
 ## Uptime
 
 Collect `uptime`, `uptime -s`, `who -b`. Configurable defaults: - \<90
-days: PASS - 90--179: WARNING - 180--364: HIGH WARNING - \>=365:
+days: PASS - 30--89: WARNING - 90--199: HIGH WARNING - \>=200:
 CRITICAL WARNING
 
 High uptime is visible but not automatically blocking.
@@ -349,9 +349,9 @@ Avoid hard-coded operational values:
 target_rhel_minor: "9.8"
 disk_warning_percent: 80
 disk_critical_percent: 95
-uptime_warning_days: 90
-uptime_high_days: 180
-uptime_critical_days: 365
+uptime_warning_days: 30
+uptime_high_days: 90
+uptime_critical_days: 200
 reboot_timeout: 900
 patch_serial: 1
 expected_content_view: ""

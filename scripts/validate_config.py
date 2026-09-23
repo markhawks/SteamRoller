@@ -48,9 +48,9 @@ def main() -> int:
         "steamroller_inode_failure_percent": 95,
         "steamroller_root_min_free_mb": 4096,
         "steamroller_boot_min_free_mb": 400,
-        "steamroller_uptime_warning_days": 90,
-        "steamroller_uptime_high_days": 180,
-        "steamroller_uptime_critical_days": 365,
+        "steamroller_uptime_warning_days": 30,
+        "steamroller_uptime_high_days": 90,
+        "steamroller_uptime_critical_days": 200,
         "steamroller_custom_repo_policy": "fail",
         "steamroller_registration_mode": "auto",
     }

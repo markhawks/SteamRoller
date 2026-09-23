@@ -83,6 +83,9 @@ grep -q -- 'reboot ENVIRONMENT --host HOST' bin/steamroller
 grep -q 'serial: 1' playbooks/20-reboot.yml
 grep -q 'suggested_reboot_command' roles/precheck/tasks/main.yml
 grep -q "% free (" roles/precheck/tasks/main.yml
+grep -q '^steamroller_uptime_warning_days: 30$' config/steamroller.yml
+grep -q '^steamroller_uptime_high_days: 90$' config/steamroller.yml
+grep -q '^steamroller_uptime_critical_days: 200$' config/steamroller.yml
 grep -q -- 'update ENVIRONMENT --host HOST' bin/steamroller
 grep -q -- '--preserve-postgresql-unit' bin/steamroller
 grep -q -- '-F|--force|--Force' bin/steamroller
