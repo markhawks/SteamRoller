@@ -13,6 +13,7 @@ import shlex
 import subprocess
 import sys
 import time
+from typing import Dict, List, Optional, Tuple
 
 
 ANSI_ESCAPE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))")
@@ -37,15 +38,18 @@ class UpdateError(Exception):
     """Operator-facing update error."""
 
 
-def command_result(command: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+def command_result(command: List[str], *, check: bool = True) -> subprocess.CompletedProcess:
     try:
-        return subprocess.run(command, check=check, capture_output=True, text=True)
+        return subprocess.run(
+            command, check=check, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
     except (OSError, subprocess.CalledProcessError) as error:
         detail = getattr(error, "stderr", "") or getattr(error, "stdout", "") or str(error)
         raise UpdateError(detail.strip()) from error
 
 
-def inventory_hostvars(inventory: str, host: str) -> dict[str, object]:
+def inventory_hostvars(inventory: str, host: str) -> Dict[str, object]:
     result = command_result(["ansible-inventory", "-i", inventory, "--list"])
     try:
         variables = json.loads(result.stdout).get("_meta", {}).get("hostvars", {})
@@ -60,8 +64,8 @@ POSTGRESQL_UNIT = "/usr/lib/systemd/system/postgresql.service"
 
 
 def ssh_base(
-    host: str, variables: dict[str, object], key: str | None, *, tty: bool = False
-) -> list[str]:
+    host: str, variables: Dict[str, object], key: Optional[str], *, tty: bool = False
+) -> List[str]:
     address = str(variables.get("ansible_host", host))
     user = str(variables.get("ansible_user", "root"))
     port = str(variables.get("ansible_port", 22))
@@ -75,12 +79,12 @@ def ssh_base(
     return command
 
 
-def privileged(remote_command: str, variables: dict[str, object]) -> str:
+def privileged(remote_command: str, variables: Dict[str, object]) -> str:
     return remote_command if str(variables.get("ansible_user", "root")) == "root" else f"sudo -n {remote_command}"
 
 
-def stream_transaction(command: list[str], log_path: Path) -> tuple[int, str]:
-    collected: list[bytes] = []
+def stream_transaction(command: List[str], log_path: Path) -> Tuple[int, str]:
+    collected = []  # type: List[bytes]
     with log_path.open("wb") as log:
         process = subprocess.Popen(
             command,
@@ -109,8 +113,8 @@ def stream_transaction(command: list[str], log_path: Path) -> tuple[int, str]:
 
 
 def remote_capture(
-    base: list[str], variables: dict[str, object], remote_command: str
-) -> subprocess.CompletedProcess[str]:
+    base: List[str], variables: Dict[str, object], remote_command: str
+) -> subprocess.CompletedProcess:
     return command_result(
         base + [privileged(remote_command, variables)],
         check=False,
@@ -125,8 +129,8 @@ def rpm_verify_reports_path(output: str, path: str) -> bool:
 
 
 def collect_postgresql_unit(
-    base: list[str], variables: dict[str, object]
-) -> dict[str, object]:
+    base: List[str], variables: Dict[str, object]
+) -> Dict[str, object]:
     exists = remote_capture(base, variables, f"test -f {POSTGRESQL_UNIT}")
     if exists.returncode != 0:
         return {"exists": False}
@@ -160,7 +164,7 @@ def collect_postgresql_unit(
     }
 
 
-def write_unit_evidence(report_dir: Path, label: str, state: dict[str, object]) -> None:
+def write_unit_evidence(report_dir: Path, label: str, state: Dict[str, object]) -> None:
     if not state.get("exists"):
         return
     unit_path = report_dir / f"postgresql-unit-{label}.service"
@@ -182,7 +186,7 @@ def write_unit_evidence(report_dir: Path, label: str, state: dict[str, object]) 
     details_path.chmod(0o640)
 
 
-def load_precheck(report_root: Path, run_id: str, host: str) -> tuple[dict, Path]:
+def load_precheck(report_root: Path, run_id: str, host: str) -> Tuple[dict, Path]:
     candidates = list(report_root.glob(f"*/{run_id}/summary.json"))
     for path in candidates:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -191,9 +195,9 @@ def load_precheck(report_root: Path, run_id: str, host: str) -> tuple[dict, Path
     raise UpdateError("precheck did not produce a summary for the selected host")
 
 
-def classify_precheck_failures(failures: list[str]) -> tuple[list[str], list[str]]:
-    overridable: list[str] = []
-    hard: list[str] = []
+def classify_precheck_failures(failures: List[str]) -> Tuple[List[str], List[str]]:
+    overridable = []  # type: List[str]
+    hard = []  # type: List[str]
     for failure in failures:
         target = overridable if failure.startswith(OVERRIDABLE_PRECHECK_FAILURE_PREFIXES) else hard
         target.append(failure)
@@ -202,7 +206,7 @@ def classify_precheck_failures(failures: list[str]) -> tuple[list[str], list[str
 
 def run_precheck(
     args: argparse.Namespace, run_id: str
-) -> tuple[dict, Path, list[str]]:
+) -> Tuple[dict, Path, List[str]]:
     command = [
         "ansible-playbook", "-i", args.inventory, args.precheck_playbook,
         "-e", f"@{args.settings}",
@@ -289,7 +293,7 @@ def main() -> int:
         ]
         if args.ssh_key_selector:
             reboot_command_parts.extend(["-sk", args.ssh_key_selector])
-        reboot_command = shlex.join(reboot_command_parts)
+        reboot_command = " ".join(shlex.quote(part) for part in reboot_command_parts)
         updates_before = int((precheck.get("updates", {}) or {}).get("total", 0))
         old_kernel = str((precheck.get("kernel", {}) or {}).get("running", ""))
         planned_kernel = str((precheck.get("kernel", {}) or {}).get("planned", ""))
@@ -312,7 +316,7 @@ def main() -> int:
         print()
 
         base = ssh_base(args.host, variables, args.ssh_key)
-        postgresql_before: dict[str, object] = {"exists": False}
+        postgresql_before = {"exists": False}  # type: Dict[str, object]
         postgresql_remote_backup = ""
         if args.postgresql_unit_mode:
             postgresql_before = collect_postgresql_unit(base, variables)
@@ -360,7 +364,7 @@ def main() -> int:
         )
         history = remote_capture(base, variables, "dnf history info last")
 
-        postgresql_after: dict[str, object] = {"exists": False}
+        postgresql_after = {"exists": False}  # type: Dict[str, object]
         postgresql_restored = False
         postgresql_restore_valid = False
         postgresql_restore_validation = "not requested"
@@ -436,8 +440,8 @@ def main() -> int:
         failed_after = [line for line in failed_after_result.stdout.splitlines() if line.strip()]
         before_names = {service_name(line) for line in failed_before}
         new_failed = [line for line in failed_after if service_name(line) not in before_names]
-        failures: list[str] = []
-        warnings: list[str] = []
+        failures = []  # type: List[str]
+        warnings = []  # type: List[str]
         if overridden_precheck_failures:
             warnings.append(
                 f"Forced update overrode {len(overridden_precheck_failures)} precheck failure(s)"

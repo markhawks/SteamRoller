@@ -16,8 +16,9 @@ def main() -> int:
         result = subprocess.run(
             ["ansible-inventory", "-i", args.inventory, "--list"],
             check=True,
-            capture_output=True,
-            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
         )
         hosts = sorted(json.loads(result.stdout).get("_meta", {}).get("hostvars", {}))
     except (OSError, subprocess.CalledProcessError, json.JSONDecodeError) as error:

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from typing import Dict, List
 
 
 class Palette:
@@ -28,13 +29,14 @@ class Palette:
         return f"{color}{value}{self.reset}"
 
 
-def expected_hosts(inventory: str) -> list[str]:
+def expected_hosts(inventory: str) -> List[str]:
     try:
         result = subprocess.run(
             ["ansible-inventory", "-i", inventory, "--list"],
             check=True,
-            capture_output=True,
-            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
         )
         data = json.loads(result.stdout)
         return sorted(data.get("_meta", {}).get("hostvars", {}).keys())
@@ -42,8 +44,8 @@ def expected_hosts(inventory: str) -> list[str]:
         return []
 
 
-def read_connectivity(path: Path) -> dict[str, object]:
-    values: dict[str, str] = {}
+def read_connectivity(path: Path) -> Dict[str, object]:
+    values = {}  # type: Dict[str, str]
     for line in path.read_text(encoding="utf-8").splitlines():
         if "=" in line:
             key, value = line.split("=", 1)
@@ -62,8 +64,8 @@ def read_connectivity(path: Path) -> dict[str, object]:
     }
 
 
-def load_rows(report_root: Path, run_id: str) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
+def load_rows(report_root: Path, run_id: str) -> List[Dict[str, object]]:
+    rows = []  # type: List[Dict[str, object]]
     for path in sorted(report_root.glob(f"*/{run_id}/summary.json")):
         try:
             row = json.loads(path.read_text(encoding="utf-8"))
@@ -498,7 +500,7 @@ def main() -> int:
             print(f"  PostgreSQL installed: {'yes' if installed else 'no'}")
             print(f"  Package source: {source} [{palette.status(source_result)}]")
             print("  Installed packages:")
-            installed_versions: dict[str, str] = {}
+            installed_versions = {}  # type: Dict[str, str]
             if packages:
                 for record in packages:
                     fields = str(record).split("|", 3)

@@ -105,8 +105,9 @@ class InventoryManagerTest(unittest.TestCase):
             subprocess.run(
                 ["ansible-inventory", "-i", str(inventory), "--list"],
                 check=True,
-                capture_output=True,
-                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
             )
 
 

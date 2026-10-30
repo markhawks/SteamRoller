@@ -4,6 +4,7 @@
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import List, Tuple
 
 
 def run_time(run_id: str) -> str:
@@ -42,7 +43,7 @@ def main() -> int:
         print(f"No reports found in {report_root}")
         return 0
 
-    rows: list[tuple[str, str, str, str]] = []
+    rows = []  # type: List[Tuple[str, str, str, str]]
     for server_directory in report_root.iterdir():
         if not server_directory.is_dir():
             continue

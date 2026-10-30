@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from typing import Dict, List, Pattern
 
 import yaml
 
@@ -25,7 +26,7 @@ def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(prog="steamroller inventory", add_help=False)
     root.add_argument("--help", action="help", help="show this help message and exit")
     root.add_argument("--inventory-root", required=True, help=argparse.SUPPRESS)
-    commands = root.add_subparsers(dest="command", required=True)
+    commands = root.add_subparsers(dest="command")
 
     for command in ("create", "add"):
         item = commands.add_parser(command, add_help=False)
@@ -46,7 +47,7 @@ def parser() -> argparse.ArgumentParser:
     return root
 
 
-def validate_name(value: str, label: str, pattern: re.Pattern[str]) -> None:
+def validate_name(value: str, label: str, pattern: Pattern) -> None:
     if not pattern.fullmatch(value):
         raise InventoryError(f"Invalid {label}: {value}")
 
@@ -62,8 +63,9 @@ def resolve_host(host: str) -> str:
         probe = subprocess.run(
             ["ping", "-c", "1", "-W", "2", "--", host],
             check=False,
-            capture_output=True,
-            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
             timeout=5,
         )
     except FileNotFoundError as error:
@@ -121,7 +123,7 @@ def write_inventory(path: Path, data: dict) -> None:
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
             stream.write("---\n")
-            yaml.safe_dump(data, stream, sort_keys=False, default_flow_style=False)
+            yaml.safe_dump(data, stream, default_flow_style=False)
         os.chmod(temporary, 0o640)
         os.replace(temporary, path)
     finally:
@@ -129,15 +131,15 @@ def write_inventory(path: Path, data: dict) -> None:
             temporary.unlink()
 
 
-def unique_hosts(values: list[str]) -> list[str]:
+def unique_hosts(values: List[str]) -> List[str]:
     hosts = list(dict.fromkeys(values))
     for host in hosts:
         validate_name(host, "host name", HOST_PATTERN)
     return hosts
 
 
-def resolve_all(hosts: list[str]) -> dict[str, str]:
-    resolved: dict[str, str] = {}
+def resolve_all(hosts: List[str]) -> Dict[str, str]:
+    resolved = {}  # type: Dict[str, str]
     for host in hosts:
         print(f"Resolving and pinging {host} ...", flush=True)
         resolved[host] = resolve_host(host)
@@ -227,7 +229,10 @@ def list_hosts(root: Path, name: str) -> None:
 
 
 def main() -> int:
-    args = parser().parse_args()
+    argument_parser = parser()
+    args = argument_parser.parse_args()
+    if args.command is None:
+        argument_parser.error("an inventory command is required")
     root = Path(args.inventory_root)
     try:
         if args.command in {"create", "add"}:

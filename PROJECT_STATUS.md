@@ -7,6 +7,9 @@ Current version: **0.3.1**
 Status: version 0.3.1 released; core update and single-host reboot workflows
 validated on real RHEL 9 systems, with multi-host reboot validation pending
 
+Control-node compatibility: RHEL 9/10 supported; RHEL 8.6+ with Python 3.6 is
+experimental and pending complete workflow validation.
+
 License: AGPL-3.0-or-later
 
 ## Current development scope
@@ -229,6 +232,7 @@ requires validation on a non-production host containing a customized unit.
 - expand negative-path testing for DNF locks, damaged RPM state, missing mounts,
   inode exhaustion, and hosts that do not return after reboot;
 - validate source installation from clean RHEL 9 and RHEL 10 control nodes;
+- validate the complete workflow from a clean RHEL 8.6+ control node;
 - define report retention and backup policy;
 - improve failed-systemd-unit classification by unit type;
 - complete RPM build and clean installation testing;

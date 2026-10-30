@@ -5,6 +5,7 @@ import argparse
 import json
 import subprocess
 import sys
+from typing import List
 
 
 LIST_FIELDS = (
@@ -30,7 +31,10 @@ def main() -> int:
         command.extend(["-e", f"@{args.environment_settings}"])
     command.extend(["-e", f"steamroller_report_root={args.report_root}", "--list"])
     try:
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        result = subprocess.run(
+            command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
         hostvars = json.loads(result.stdout).get("_meta", {}).get("hostvars", {})
     except (OSError, subprocess.CalledProcessError, json.JSONDecodeError) as error:
         print(f"CONFIG FAIL: unable to load effective configuration: {error}", file=sys.stderr)
@@ -40,7 +44,7 @@ def main() -> int:
         print("CONFIG FAIL: inventory contains no hosts", file=sys.stderr)
         return 2
 
-    errors: list[str] = []
+    errors = []  # type: List[str]
     defaults = {
         "steamroller_disk_warning_percent": 80,
         "steamroller_disk_critical_percent": 95,

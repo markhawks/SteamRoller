@@ -5,6 +5,15 @@ Examples assume a source checkout in `/root/SteamRoller` and root execution.
 
 ## 1. Install the source command and completion
 
+Supported control nodes are RHEL 9 and RHEL 10. RHEL 8.6 or later is available
+as an experimental control node and uses its system Python 3.6. Install its
+requirements with:
+
+```bash
+dnf install -y ansible-core python3 python3-pyyaml git openssh-clients \
+  iputils bash-completion
+```
+
 ```bash
 cd /root/SteamRoller
 ./setup/manual/install-source-path.sh

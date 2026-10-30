@@ -29,6 +29,7 @@ required_files=(
     scripts/resolve_ssh_key.py
     scripts/inventory_hostnames.py
     scripts/run_dnf_update.py
+    scripts/check_python36_syntax.py
     scripts/test_satellite_check.sh
     setup/manual/install-source-path.sh
     setup/README.md
@@ -109,6 +110,7 @@ python3 -m py_compile scripts/manage_inventory.py
 python3 -m py_compile scripts/resolve_ssh_key.py
 python3 -m py_compile scripts/inventory_hostnames.py
 python3 -m py_compile scripts/run_dnf_update.py
+python3 scripts/check_python36_syntax.py
 python3 scripts/inventory_hostnames.py --inventory inventories/dev/hosts.yml | grep -q .
 python3 -m unittest tests/test_inventory_manager.py
 python3 -m unittest tests/test_ssh_key_resolver.py

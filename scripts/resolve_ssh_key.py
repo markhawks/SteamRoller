@@ -4,6 +4,7 @@
 import argparse
 from pathlib import Path
 import sys
+from typing import List, Optional
 
 
 PRIVATE_KEY_MARKERS = (
@@ -26,14 +27,14 @@ def is_private_key(path: Path) -> bool:
     return any(marker in first_bytes for marker in PRIVATE_KEY_MARKERS)
 
 
-def keys_in(directory: Path, recursive: bool) -> list[Path]:
+def keys_in(directory: Path, recursive: bool) -> List[Path]:
     if not directory.is_dir():
         return []
     paths = directory.glob("*/*") if recursive else directory.glob("*")
     return sorted((path.resolve() for path in paths if is_private_key(path)), key=str)
 
 
-def resolve(key_root: Path, selector: str | None) -> Path | None:
+def resolve(key_root: Path, selector: Optional[str]) -> Optional[Path]:
     if selector:
         selected = Path(selector).expanduser()
         if not selected.exists():

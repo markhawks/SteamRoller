@@ -61,7 +61,10 @@ def main() -> int:
         command.extend(["-e", f"@{args.environment_settings}"])
     command.extend(["-e", f"steamroller_report_root={args.report_root}", "--list"])
     try:
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        result = subprocess.run(
+            command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
         inventory = json.loads(result.stdout)
     except (OSError, subprocess.CalledProcessError, json.JSONDecodeError) as error:
         print(f"Unable to read effective configuration: {error}", file=sys.stderr)

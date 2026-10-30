@@ -42,6 +42,10 @@ Control node:
 - OpenSSH client and `ping`;
 - Git for source-based installation.
 
+RHEL 8.6 or later can be used as an experimental source-based control node.
+SteamRoller scripts are compatible with the system Python 3.6 shipped by
+RHEL 8, but the RHEL 8 control-node workflow still requires full validation.
+
 Managed hosts:
 
 - RHEL 9.x;
