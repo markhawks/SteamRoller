@@ -53,12 +53,14 @@ install -m 0644 config/steamroller.yml %{buildroot}%{_sysconfdir}/steamroller/st
 install -m 0644 config/hosts.yml.example \
     %{buildroot}%{_sysconfdir}/steamroller/inventories/dev/hosts.yml
 ln -s /opt/steamroller/bin/steamroller %{buildroot}%{_bindir}/steamroller
+ln -s /opt/steamroller/bin/steamroller %{buildroot}%{_bindir}/strl
 
 %files
 %license LICENSE
 %doc README.md
 /opt/steamroller
 %{_bindir}/steamroller
+%{_bindir}/strl
 %{_datadir}/bash-completion/completions/steamroller
 %dir %{_sysconfdir}/steamroller
 %dir %{_sysconfdir}/steamroller/inventories

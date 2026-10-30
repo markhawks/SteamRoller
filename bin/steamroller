@@ -3,7 +3,17 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_path="${BASH_SOURCE[0]}"
+while [[ -L "$script_path" ]]; do
+    script_directory="$(cd "$(dirname "$script_path")" && pwd)"
+    script_target="$(readlink "$script_path")"
+    if [[ "$script_target" == /* ]]; then
+        script_path="$script_target"
+    else
+        script_path="${script_directory}/${script_target}"
+    fi
+done
+readonly SCRIPT_DIR="$(cd "$(dirname "$script_path")" && pwd)"
 readonly SOURCE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 if [[ -d "${SOURCE_ROOT}/playbooks" && -d "${SOURCE_ROOT}/inventories" ]]; then

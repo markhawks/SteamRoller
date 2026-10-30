@@ -40,6 +40,9 @@ steamroller update ENVIRONMENT --host HOST
 steamroller status
 ```
 
+Every command is also available through the official `strl` short command,
+with identical arguments and Bash completion.
+
 All operational commands support persistent reporting. Connectivity, precheck,
 repository quarantine, reboot, and update accept SSH key profiles. Update is
 always interactive and intentionally does not accept `-q`/`--quiet`.

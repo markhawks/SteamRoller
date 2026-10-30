@@ -34,7 +34,22 @@ Expected version:
 ```
 
 The installer can be run repeatedly. It replaces its managed `.bashrc` block
-and creates a timestamped backup. Remove the managed block with:
+and creates a timestamped backup. It also installs the short command:
+
+```text
+/usr/local/bin/strl
+```
+
+`strl` accepts the same arguments and Bash completion as `steamroller`:
+
+```bash
+strl version
+strl inventory list
+strl precheck ORION-LAB -q -sk foreman
+```
+
+The installer stops without changing configuration if `strl` already belongs
+to another program. Remove the managed block and short-command link with:
 
 ```bash
 ./setup/manual/install-source-path.sh --remove

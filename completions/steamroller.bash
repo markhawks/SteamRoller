@@ -151,4 +151,5 @@ _steamroller() {
 }
 
 complete -F _steamroller steamroller
+complete -F _steamroller strl
 complete -F _steamroller ./bin/steamroller

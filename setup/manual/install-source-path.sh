@@ -8,14 +8,15 @@ readonly DEFAULT_PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 project_root="$DEFAULT_PROJECT_ROOT"
 bashrc_file="/root/.bashrc"
+short_command="/usr/local/bin/strl"
 remove=false
 
 usage() {
     printf '%s\n' \
-        'Usage: install-source-path.sh [--project-root PATH] [--bashrc PATH] [--remove]' \
+        'Usage: install-source-path.sh [--project-root PATH] [--bashrc PATH] [--short-command PATH] [--remove]' \
         '' \
-        'Install or update a managed SteamRoller PATH entry in /root/.bashrc.' \
-        'Use --remove to remove the managed entry.'
+        'Install or update SteamRoller PATH, completion, and the strl short command.' \
+        'Use --remove to remove the managed entries.'
 }
 
 while [[ $# -gt 0 ]]; do
@@ -28,6 +29,11 @@ while [[ $# -gt 0 ]]; do
         --bashrc)
             [[ $# -ge 2 ]] || { printf 'Missing value after --bashrc.\n' >&2; exit 2; }
             bashrc_file="$2"
+            shift 2
+            ;;
+        --short-command)
+            [[ $# -ge 2 ]] || { printf 'Missing value after --short-command.\n' >&2; exit 2; }
+            short_command="$2"
             shift 2
             ;;
         --remove)
@@ -60,6 +66,18 @@ completion_file="${project_root}/completions/steamroller.bash"
     printf 'SteamRoller Bash completion not found: %s\n' "$completion_file" >&2
     exit 2
 }
+
+short_command_directory="$(dirname "$short_command")"
+[[ -d "$short_command_directory" ]] || {
+    printf 'Short-command directory does not exist: %s\n' "$short_command_directory" >&2
+    exit 2
+}
+if [[ "$remove" == false && ( -e "$short_command" || -L "$short_command" ) ]]; then
+    if [[ ! -L "$short_command" || "$(readlink -f -- "$short_command" 2>/dev/null || true)" != "$steamroller_bin" ]]; then
+        printf 'Short command already exists and is not managed by SteamRoller: %s\n' "$short_command" >&2
+        exit 2
+    fi
+fi
 
 if [[ "$bashrc_file" == "/root/.bashrc" && $EUID -ne 0 ]]; then
     printf 'Run this installer as root to modify /root/.bashrc.\n' >&2
@@ -108,14 +126,20 @@ mv -f -- "$temporary_file" "$bashrc_file"
 trap - EXIT
 
 if [[ "$remove" == true ]]; then
+    if [[ -L "$short_command" && "$(readlink -f -- "$short_command" 2>/dev/null || true)" == "$steamroller_bin" ]]; then
+        unlink "$short_command"
+        printf 'SteamRoller short command removed: %s\n' "$short_command"
+    fi
     printf 'SteamRoller PATH entry removed from %s\n' "$bashrc_file"
 else
+    ln -sfn -- "$steamroller_bin" "$short_command"
     version="$(PATH="${project_root}/bin:${PATH}" steamroller version)"
     printf 'SteamRoller PATH installed successfully.\n'
     printf 'Project: %s\n' "$project_root"
     printf 'Shell configuration: %s\n' "$bashrc_file"
     printf 'Backup: %s\n' "$backup_file"
     printf 'Detected version: %s\n' "$version"
+    printf 'Short command: %s -> %s\n' "$short_command" "$steamroller_bin"
     printf 'Bash completion: enabled\n'
     printf '\nActivate it in the current shell with:\n'
     printf '  source %s\n' "$bashrc_file"

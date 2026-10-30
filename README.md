@@ -136,7 +136,37 @@ steamroller version
 ```
 
 The installer adds the current checkout to root's `PATH`, enables Bash
-completion, creates a timestamped `.bashrc` backup, and is safe to run again.
+completion, installs the `strl` short command, creates a timestamped `.bashrc`
+backup, and is safe to run again.
+
+Both command names are equivalent:
+
+```bash
+steamroller version
+strl version
+
+strl inventory list
+strl precheck ORION-LAB -q -sk foreman
+```
+
+For source installations, `strl` is a managed symbolic link:
+
+```text
+/usr/local/bin/strl -> PROJECT_ROOT/bin/steamroller
+```
+
+The installer refuses to overwrite an existing `strl` command that it does
+not manage. Check for a collision before installation with:
+
+```bash
+command -v strl
+type -a strl
+dnf provides '*/bin/strl'
+```
+
+Running the installer with `--remove` removes both the managed Bash block and
+the managed `strl` link. RPM installations provide `/usr/bin/steamroller` and
+`/usr/bin/strl`.
 
 Create an inventory:
 

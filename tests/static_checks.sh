@@ -98,12 +98,20 @@ grep -qx '0.3.2' VERSION
 grep -q '^Version:[[:space:]]*0.3.2$' packaging/rpm/steamroller.spec
 grep -q 'Current version: \*\*0.3.2\*\*' README.md
 grep -q 'RHEL 8.6+ control-node mini-HOWTO' README.md
+grep -q 'complete -F _steamroller strl' completions/steamroller.bash
+grep -q '%{_bindir}/strl' packaging/rpm/steamroller.spec
+grep -q '/usr/local/bin/strl' README.md
 [[ -x setup/manual/install-source-path.sh ]]
 
 bash -n bin/steamroller
 bash -n scripts/test_satellite_check.sh
 bash -n setup/manual/install-source-path.sh
 bash -n completions/steamroller.bash
+short_command_test_dir="$(mktemp -d /tmp/steamroller-short-command.XXXXXX)"
+ln -s "$project_root/bin/steamroller" "$short_command_test_dir/strl"
+"$short_command_test_dir/strl" version | grep -qx '0.3.2'
+unlink "$short_command_test_dir/strl"
+rmdir "$short_command_test_dir"
 python3 -m py_compile scripts/render_summary.py
 python3 -m py_compile scripts/show_config.py
 python3 -m py_compile scripts/validate_config.py
