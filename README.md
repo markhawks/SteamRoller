@@ -11,7 +11,7 @@ Enterprise Linux 9 systems from a RHEL 9 or RHEL 10 control node. It provides
 multi-host prechecks, persistent evidence, repository safety controls, and a
 confirmed sequential multi-host reboot workflow.
 
-Current version: **0.3.1**
+Current version: **0.3.2**
 
 ## Highlights
 
@@ -45,6 +45,76 @@ Control node:
 RHEL 8.6 or later can be used as an experimental source-based control node.
 SteamRoller scripts are compatible with the system Python 3.6 shipped by
 RHEL 8, but the RHEL 8 control-node workflow still requires full validation.
+
+### RHEL 8.6+ control-node mini-HOWTO
+
+Confirm the RHEL release and registration:
+
+```bash
+cat /etc/redhat-release
+subscription-manager identity
+subscription-manager status
+```
+
+For a host registered directly with Red Hat CDN, enable BaseOS and AppStream:
+
+```bash
+subscription-manager repos \
+  --enable=rhel-8-for-x86_64-baseos-rpms \
+  --enable=rhel-8-for-x86_64-appstream-rpms
+```
+
+On a Satellite-managed host, provide those repositories through its Content
+View instead of enabling CDN repositories manually. Verify the enabled content:
+
+```bash
+dnf repolist --enabled
+```
+
+Install the required RPM packages:
+
+```bash
+dnf install -y \
+  ansible-core \
+  python3 \
+  python3-pyyaml \
+  git \
+  openssh-clients \
+  iputils \
+  bash-completion
+```
+
+Install `rpm-build` only when RPM development tools are needed:
+
+```bash
+dnf install -y rpm-build
+```
+
+Download and register the source command:
+
+```bash
+cd /root
+git clone https://github.com/markhawks/SteamRoller.git
+cd SteamRoller
+./setup/manual/install-source-path.sh
+source /root/.bashrc
+```
+
+Validate the installation:
+
+```bash
+python3 --version
+ansible --version
+python3 -c 'import yaml; print(yaml.__version__)'
+steamroller version
+steamroller inventory list
+```
+
+Expected SteamRoller version:
+
+```text
+0.3.2
+```
 
 Managed hosts:
 
@@ -231,6 +301,7 @@ threshold, precheck reports include a complete suggested reboot command.
 
 - [Complete command HOWTO](docs/HOWTO.md)
 - [Project status](PROJECT_STATUS.md)
+- [Version 0.3.2 release notes](docs/RELEASE_NOTES_0.3.2.md)
 - [Version 0.3.1 release notes](docs/RELEASE_NOTES_0.3.1.md)
 - [Version 0.3.0 release notes](docs/RELEASE_NOTES_0.3.0.md)
 - [Version 0.2.0 release notes](docs/RELEASE_NOTES_0.2.0.md)

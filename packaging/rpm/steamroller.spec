@@ -1,5 +1,5 @@
 Name:           steamroller
-Version:        0.3.1
+Version:        0.3.2
 Release:        1%{?dist}
 Summary:        Safe RHEL 9 remote patching precheck automation
 License:        AGPL-3.0-or-later
@@ -10,6 +10,7 @@ BuildArch:      noarch
 Requires:       ansible-core
 Requires:       bash
 Requires:       iputils
+Requires:       openssh-clients
 Requires:       python3
 Requires:       python3-pyyaml
 
@@ -71,6 +72,10 @@ ln -s /opt/steamroller/bin/steamroller %{buildroot}%{_bindir}/steamroller
 %dir %{_localstatedir}/log/steamroller
 
 %changelog
+* Fri Oct 30 2026 SteamRoller Team <root@localhost> - 0.3.2-1
+- Add Python 3.6 compatibility for an experimental RHEL 8.6+ control node and
+  document the complete RHEL 8 source installation requirements
+
 * Wed Sep 23 2026 SteamRoller Team <root@localhost> - 0.3.1-1
 - Add sequential multi-host reboot, uptime-based reboot command guidance, and
   percentage/free-space details for filesystem warnings

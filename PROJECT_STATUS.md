@@ -2,9 +2,9 @@
 
 Last updated: 2026-09-23
 
-Current version: **0.3.1**
+Current version: **0.3.2**
 
-Status: version 0.3.1 released; core update and single-host reboot workflows
+Status: version 0.3.2 released; core update and single-host reboot workflows
 validated on real RHEL 9 systems, with multi-host reboot validation pending
 
 Control-node compatibility: RHEL 9/10 supported; RHEL 8.6+ with Python 3.6 is
@@ -213,7 +213,7 @@ Configuration is validated before contacting managed hosts.
 - native DNF terminal display and manual confirmation;
 - automated tests for PostgreSQL unit detection and update-option completion.
 
-The 0.3.1 workflow, including interactive DNF update and controlled force mode,
+The 0.3.2 workflow, including interactive DNF update and controlled force mode,
 has been exercised successfully by the operator. PostgreSQL unit restoration still
 requires validation on a non-production host containing a customized unit.
 
