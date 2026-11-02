@@ -265,7 +265,7 @@ Precheck is read-only unless `--repo-off` is explicitly supplied. It collects:
 - RHSM/CDN/Satellite identity and repositories;
 - DNF health and available updates;
 - PostgreSQL RPMs, vendor, provenance, and available versions;
-- disk capacity, inode usage, fstab mounts, and read-only state;
+- disk capacity, local-filesystem inode usage, fstab mounts, and read-only state;
 - network and NetworkManager information;
 - running, enabled, and failed systemd units;
 - custom repository configuration files.

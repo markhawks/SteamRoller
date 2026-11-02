@@ -119,6 +119,7 @@ INODES
 ------
 Warning threshold: {{ steamroller_inode_warning_percent }}%
 Failure threshold: {{ steamroller_inode_failure_percent }}%
+Remote filesystems excluded: {{ steamroller_inode_skipped_remote_mounts | join(', ') if steamroller_inode_skipped_remote_mounts | length > 0 else 'none' }}
 Warning mounts: {{ steamroller_inode_warning_mounts | join(', ') if steamroller_inode_warning_mounts | length > 0 else 'none' }}
 Failed mounts: {{ steamroller_inode_failure_mounts | join(', ') if steamroller_inode_failure_mounts | length > 0 else 'none' }}
 {{ steamroller_df_inodes.stdout | default('') }}

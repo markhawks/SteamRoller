@@ -22,6 +22,7 @@ FIELDS = (
     ("Boot minimum free space", "steamroller_boot_min_free_mb", 400, " MiB"),
     ("Inode usage warning", "steamroller_inode_warning_percent", 80, "%"),
     ("Inode usage failure", "steamroller_inode_failure_percent", 95, "%"),
+    ("Remote filesystems excluded from inode thresholds", "steamroller_inode_remote_filesystem_types", ["nfs", "nfs4", "cifs", "smb3", "ceph", "glusterfs", "sshfs", "fuse.sshfs", "9p"]),
     ("Uptime warning threshold", "steamroller_uptime_warning_days", 30, " days"),
     ("Uptime high threshold", "steamroller_uptime_high_days", 90, " days"),
     ("Uptime critical threshold", "steamroller_uptime_critical_days", 200, " days"),

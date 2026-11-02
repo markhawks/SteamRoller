@@ -5,6 +5,7 @@
     steamroller_warnings: []
     steamroller_inode_warning_mounts: []
     steamroller_inode_failure_mounts: []
+    steamroller_inode_skipped_remote_mounts: []
     steamroller_required_readonly_mounts: []
     steamroller_server_name: "{{ ansible_fqdn | regex_replace('[^A-Za-z0-9._-]', '_') }}"
     steamroller_precheck_started_epoch: "{{ lookup('pipe', 'date +%s') | int }}"
@@ -396,11 +397,22 @@
     - item.mount in steamroller_required_mounts
     - "'ro' in item.options.split(',')"
 
+- name: Identify remote filesystems excluded from inode thresholds
+  ansible.builtin.set_fact:
+    steamroller_inode_skipped_remote_mounts: >-
+      {{ steamroller_inode_skipped_remote_mounts + [item.mount] }}
+  loop: "{{ ansible_mounts }}"
+  when: >-
+    item.fstype | default('') in steamroller_inode_remote_filesystem_types or
+    ':' in item.device | default('') or
+    item.device | default('') is match('^//')
+
 - name: Classify inode usage failures
   ansible.builtin.set_fact:
     steamroller_inode_failure_mounts: "{{ steamroller_inode_failure_mounts + [item.mount] }}"
   loop: "{{ ansible_mounts }}"
   when:
+    - item.mount not in steamroller_inode_skipped_remote_mounts
     - item.inode_total | default(0) | int > 0
     - >-
       (item.inode_used | default(0) | float * 100.0 /
@@ -411,6 +423,7 @@
     steamroller_inode_warning_mounts: "{{ steamroller_inode_warning_mounts + [item.mount] }}"
   loop: "{{ ansible_mounts }}"
   when:
+    - item.mount not in steamroller_inode_skipped_remote_mounts
     - item.inode_total | default(0) | int > 0
     - >-
       (item.inode_used | default(0) | float * 100.0 /
@@ -899,6 +912,7 @@
         failure_percent: "{{ steamroller_inode_failure_percent }}"
         warning_mounts: "{{ steamroller_inode_warning_mounts }}"
         failure_mounts: "{{ steamroller_inode_failure_mounts }}"
+        skipped_remote_mounts: "{{ steamroller_inode_skipped_remote_mounts }}"
       fstab_mounts:
         required: "{{ steamroller_required_mounts }}"
         missing: "{{ steamroller_missing_required_mounts }}"

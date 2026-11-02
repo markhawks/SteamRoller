@@ -6,20 +6,43 @@
   vars:
     steamroller_inode_warning_percent: 80
     steamroller_inode_failure_percent: 95
+    steamroller_inode_remote_filesystem_types: [nfs, nfs4, cifs, smb3, ceph, glusterfs, sshfs, fuse.sshfs, 9p]
     steamroller_inode_policy_cases:
       - mount: /complete
+        device: /dev/mapper/test-local
+        fstype: xfs
         inode_total: 100
         inode_used: 96
       - mount: /missing-inode-facts
+        device: /dev/mapper/test-missing
+        fstype: xfs
       - mount: /zero-inodes
+        device: /dev/mapper/test-zero
+        fstype: xfs
         inode_total: 0
+      - mount: /remote-nfs
+        device: storage.example.net:/exports/data
+        fstype: nfs
+        inode_total: 100
+        inode_used: 99
   tasks:
+    - name: Identify remote filesystems excluded from inode thresholds
+      ansible.builtin.set_fact:
+        steamroller_inode_policy_remote: >-
+          {{ (steamroller_inode_policy_remote | default([])) + [item.mount] }}
+      loop: "{{ steamroller_inode_policy_cases }}"
+      when: >-
+        item.fstype | default('') in steamroller_inode_remote_filesystem_types or
+        ':' in item.device | default('') or
+        item.device | default('') is match('^//')
+
     - name: Evaluate inode failure expression safely
       ansible.builtin.set_fact:
         steamroller_inode_policy_failures: >-
           {{ (steamroller_inode_policy_failures | default([])) + [item.mount] }}
       loop: "{{ steamroller_inode_policy_cases }}"
       when:
+        - item.mount not in steamroller_inode_policy_remote | default([])
         - item.inode_total | default(0) | int > 0
         - >-
           (item.inode_used | default(0) | float * 100.0 /
@@ -29,3 +52,4 @@
       ansible.builtin.assert:
         that:
           - steamroller_inode_policy_failures == ['/complete']
+          - steamroller_inode_policy_remote == ['/remote-nfs']

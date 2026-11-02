@@ -13,6 +13,7 @@ LIST_FIELDS = (
     "steamroller_required_repositories",
     "steamroller_critical_services",
     "steamroller_application_services",
+    "steamroller_inode_remote_filesystem_types",
 )
 
 

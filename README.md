@@ -19,7 +19,7 @@ Current version: **0.3.2**
 - multi-host inventories with built-in create, add, delete, and list commands;
 - SSH connectivity and root-execution validation;
 - dedicated SSH key profiles with automatic private-key discovery;
-- RHEL, kernel, uptime, DNF/RPM, disk, inode, fstab, network, and systemd checks;
+- RHEL, kernel, uptime, DNF/RPM, disk, local-filesystem inode, fstab, network, and systemd checks;
 - Red Hat CDN and Satellite auto-detection, including Simple Content Access;
 - Satellite Organization, Lifecycle Environment, Content View, and repository evidence;
 - custom `.repo` detection and explicit repository quarantine with local backup;
