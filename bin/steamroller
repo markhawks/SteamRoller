@@ -39,9 +39,9 @@ readonly SSH_KEY_ROOT="${STEAMROLLER_SSH_KEY_ROOT:-${CONFIG_ROOT}/ssh-keys}"
 
 usage() {
     printf '%s\n' \
-        'Usage: steamroller precheck ENVIRONMENT [-q|--quiet] [--repo-off] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
-        '       steamroller connectivity ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
-        '       steamroller repo-off ENVIRONMENT [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
+        'Usage: steamroller precheck ENVIRONMENT [--host HOST ...] [-q|--quiet] [--repo-off] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
+        '       steamroller connectivity ENVIRONMENT [--host HOST ...] [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
+        '       steamroller repo-off ENVIRONMENT [--host HOST ...] [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [ansible-playbook options]' \
         '       steamroller reboot ENVIRONMENT --host HOST [--host HOST ...] [-q|--quiet] [-sk|--ssh-key KEY_OR_PROFILE] [--confirm] [--timeout SECONDS]' \
         '       steamroller update ENVIRONMENT --host HOST [-sk|--ssh-key KEY_OR_PROFILE] [-F|--force] [--preserve-postgresql-unit {backup|restore}]' \
         '       steamroller config [ENVIRONMENT]' \
@@ -261,8 +261,22 @@ if [[ "$action" == "reboot" || "$action" == "update" ]]; then
         }
     done
     selected_host="${selected_hosts[0]}"
+elif [[ "$action" == "precheck" || "$action" == "connectivity" || "$action" == "repo-off" ]]; then
+    declare -A selected_host_seen=()
+    for selected_host_item in "${selected_hosts[@]}"; do
+        if [[ -n "${selected_host_seen[$selected_host_item]:-}" ]]; then
+            printf 'Host was selected more than once: %s\n' "$selected_host_item" >&2
+            exit 2
+        fi
+        selected_host_seen["$selected_host_item"]=1
+        python3 "${APP_ROOT}/scripts/inventory_hostnames.py" \
+            --inventory "$inventory" --contains "$selected_host_item" || {
+            printf 'Host is not present in inventory %s: %s\n' "$environment" "$selected_host_item" >&2
+            exit 2
+        }
+    done
 elif [[ ${#selected_hosts[@]} -gt 0 || "$reboot_confirmed" == true || "$reboot_timeout" != 900 ]]; then
-    printf '%s\n' '--host, --confirm, and --timeout are valid only with reboot.' >&2
+    printf '%s\n' '--host is valid with precheck, connectivity, repo-off, reboot, and update; --confirm and --timeout are reboot-only.' >&2
     exit 2
 fi
 
@@ -375,9 +389,12 @@ ansible_command+=(
 if [[ "$repo_off_requested" == true ]]; then
     ansible_command+=(-e "steamroller_repo_off_requested=true")
 fi
-if [[ "$action" == "reboot" ]]; then
+if [[ ${#selected_hosts[@]} -gt 0 && "$action" != "update" ]]; then
     reboot_limit="$(IFS=,; printf '%s' "${selected_hosts[*]}")"
-    ansible_command+=(--limit "$reboot_limit" -e "steamroller_reboot_timeout=${reboot_timeout}")
+    ansible_command+=(--limit "$reboot_limit")
+fi
+if [[ "$action" == "reboot" ]]; then
+    ansible_command+=(-e "steamroller_reboot_timeout=${reboot_timeout}")
 fi
 if [[ -n "$ssh_key" ]]; then
     ansible_command+=(--private-key "$ssh_key")
@@ -400,7 +417,7 @@ render_options=(
     --run-id "$run_id"
     --inventory "$inventory"
     --environment "$environment")
-if [[ "$action" == "reboot" ]]; then
+if [[ ${#selected_hosts[@]} -gt 0 ]]; then
     for selected_host_item in "${selected_hosts[@]}"; do
         render_options+=(--expected-host "$selected_host_item")
     done

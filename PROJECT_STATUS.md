@@ -33,9 +33,9 @@ steamroller version
 steamroller doctor ENVIRONMENT
 steamroller config [ENVIRONMENT]
 steamroller inventory create|add|del|list
-steamroller connectivity ENVIRONMENT
-steamroller precheck ENVIRONMENT
-steamroller repo-off ENVIRONMENT
+steamroller connectivity ENVIRONMENT [--host HOST ...]
+steamroller precheck ENVIRONMENT [--host HOST ...]
+steamroller repo-off ENVIRONMENT [--host HOST ...]
 steamroller reboot ENVIRONMENT --host HOST [--host HOST ...]
 steamroller update ENVIRONMENT --host HOST
 steamroller status
@@ -43,6 +43,10 @@ steamroller status
 
 Every command is also available through the official `strl` short command,
 with identical arguments and Bash completion.
+
+Connectivity, precheck, and repository quarantine accept repeatable `--host`
+selection. Host names are validated against the chosen inventory, suggested by
+Bash completion, and used to scope both execution and final reports.
 
 All operational commands support persistent reporting. Connectivity, precheck,
 repository quarantine, reboot, and update accept SSH key profiles. Update is

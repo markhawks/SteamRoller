@@ -230,11 +230,32 @@ steamroller connectivity ORION-LAB -q -sk foreman
 The command verifies SSH, Ansible Python, root execution, hostname, and FQDN
 for every inventory host. Unreachable hosts remain visible as failures.
 
+To check only one inventory host:
+
+```bash
+strl connectivity ORION-LAB --host velora-db-a01.ops.example -q -sk foreman
+```
+
+Use `--host <Tab><Tab>` to list the hosts in the selected environment.
+
 ## 9. Precheck
 
 ```bash
 steamroller precheck ORION-LAB -q -sk foreman
 ```
+
+To precheck one host or a selected subset:
+
+```bash
+strl precheck ORION-LAB --host velora-db-a01.ops.example -q -sk foreman
+strl precheck ORION-LAB \
+  --host velora-db-a01.ops.example \
+  --host velora-app-a01.ops.example \
+  -q -sk foreman
+```
+
+Each host name is validated against the inventory. Execution and the final
+report include only the selected hosts.
 
 Precheck is read-only unless `--repo-off` is explicitly supplied. It collects:
 

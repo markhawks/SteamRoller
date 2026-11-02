@@ -88,13 +88,15 @@ _steamroller() {
         precheck|connectivity|repo-off)
             if [[ "$previous" == "-sk" || "$previous" == "--ssh-key" ]]; then
                 COMPREPLY=( $(compgen -W "$(_steamroller_key_profiles)" -- "$current") )
+            elif [[ "$previous" == "--host" ]]; then
+                COMPREPLY=( $(compgen -W "$(_steamroller_inventory_hosts "${COMP_WORDS[2]:-}")" -- "$current") )
             elif (( COMP_CWORD == 2 )); then
                 COMPREPLY=( $(compgen -W "$(_steamroller_inventories)" -- "$current") )
             else
                 if [[ "$action" == "precheck" ]]; then
-                    COMPREPLY=( $(compgen -W '-q --quiet --repo-off -sk --ssh-key' -- "$current") )
+                    COMPREPLY=( $(compgen -W '--host -q --quiet --repo-off -sk --ssh-key' -- "$current") )
                 else
-                    COMPREPLY=( $(compgen -W '-q --quiet -sk --ssh-key' -- "$current") )
+                    COMPREPLY=( $(compgen -W '--host -q --quiet -sk --ssh-key' -- "$current") )
                 fi
             fi
             ;;

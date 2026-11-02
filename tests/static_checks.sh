@@ -83,6 +83,9 @@ grep -q -- '--private-key' bin/steamroller
 grep -q -- '--ssh-key' bin/steamroller
 grep -q -- '-q|--quiet' bin/steamroller
 grep -q -- 'reboot ENVIRONMENT --host HOST' bin/steamroller
+grep -q -- 'precheck ENVIRONMENT \[--host HOST' bin/steamroller
+grep -q -- 'connectivity ENVIRONMENT \[--host HOST' bin/steamroller
+grep -q -- 'repo-off ENVIRONMENT \[--host HOST' bin/steamroller
 grep -q 'serial: 1' playbooks/20-reboot.yml
 grep -q 'suggested_reboot_command' roles/precheck/tasks/main.yml
 grep -q "% free (" roles/precheck/tasks/main.yml

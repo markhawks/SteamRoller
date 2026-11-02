@@ -167,6 +167,17 @@ strl inventory list
 strl precheck ORION-LAB -q -sk foreman
 ```
 
+Run a check on only one inventory host with `--host`:
+
+```bash
+strl connectivity ORION-LAB --host velora-db-a01.ops.example -q -sk foreman
+strl precheck ORION-LAB --host velora-db-a01.ops.example -q -sk foreman
+```
+
+Repeat `--host` to check a selected subset. SteamRoller validates every name
+against the inventory and limits both execution and the final report to the
+selected hosts. Bash completion suggests inventory host names after `--host`.
+
 For source installations, `strl` is a managed symbolic link:
 
 ```text
