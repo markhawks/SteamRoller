@@ -266,6 +266,16 @@ def service_name(line: object) -> str:
     return fields[0] if fields else "unknown-service"
 
 
+def reboot_hint_is_available(stdout: str, stderr: str) -> bool:
+    output = (stdout + stderr).lower()
+    return "no such command" not in output and "unknown command" not in output
+
+
+def kernel_version_from_package(package: str) -> str:
+    prefix = "kernel-core-"
+    return package[len(prefix):] if package.startswith(prefix) else package
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--inventory", required=True)
@@ -440,6 +450,22 @@ def main() -> int:
         failed_after = [line for line in failed_after_result.stdout.splitlines() if line.strip()]
         before_names = {service_name(line) for line in failed_before}
         new_failed = [line for line in failed_after if service_name(line) not in before_names]
+        newest_kernel = ""
+        if installed_kernels.stdout.splitlines():
+            newest_kernel = installed_kernels.stdout.splitlines()[0].split()[0]
+        newest_kernel_version = kernel_version_from_package(newest_kernel)
+        reboot_hint_available = reboot_hint_is_available(
+            reboot_required.stdout, reboot_required.stderr
+        )
+        reboot_is_required = (
+            (reboot_hint_available and reboot_required.returncode == 1)
+            or (
+                kernel.returncode == 0
+                and installed_kernels.returncode == 0
+                and bool(newest_kernel_version)
+                and kernel.stdout.strip() != newest_kernel_version
+            )
+        )
         failures = []  # type: List[str]
         warnings = []  # type: List[str]
         if overridden_precheck_failures:
@@ -458,8 +484,12 @@ def main() -> int:
             failures.append("New failed systemd units appeared after the update")
         if remaining_lines:
             warnings.append(f"{len(remaining_lines)} package updates remain available")
-        if reboot_required.returncode == 1:
+        if reboot_is_required:
             warnings.append("A reboot is required to complete the update")
+        if not reboot_hint_available:
+            warnings.append(
+                "Unable to run dnf needs-restarting -r; install yum-utils"
+            )
         if args.postgresql_unit_mode == "backup" and postgresql_before.get("customized"):
             if postgresql_before.get("checksum") != postgresql_after.get("checksum"):
                 warnings.append(
@@ -474,9 +504,6 @@ def main() -> int:
             failures.append("Customized PostgreSQL unit could not be restored and validated")
 
         status = "FAIL" if failures else ("WARNING" if warnings else "PASS")
-        newest_kernel = ""
-        if installed_kernels.stdout.splitlines():
-            newest_kernel = installed_kernels.stdout.splitlines()[0].split()[0]
 
         summary = {
             "run_id": run_id,
@@ -503,7 +530,8 @@ def main() -> int:
                 "transaction_exit_code": transaction_rc,
                 "cancelled": cancelled,
                 "dnf_check_exit_code": dnf_check.returncode,
-                "reboot_required": reboot_required.returncode == 1,
+                "reboot_required": reboot_is_required,
+                "reboot_hint_available": reboot_hint_available,
                 "remaining_updates": remaining_lines,
                 "failed_units_before": failed_before,
                 "failed_units_after": failed_after,
@@ -551,7 +579,7 @@ def main() -> int:
             f"Current kernel: {kernel.stdout.strip()}\n"
             f"Newest installed kernel: {newest_kernel}\n"
             f"Remaining updates: {len(remaining_lines)}\n"
-            f"Reboot required: {'yes' if reboot_required.returncode == 1 else 'no'}\n"
+            f"Reboot required: {'yes' if reboot_is_required else 'no'}\n"
             f"New failed units: {', '.join(service_name(line) for line in new_failed) or 'none'}\n"
             f"PostgreSQL unit mode: {args.postgresql_unit_mode or 'disabled'}\n"
             f"PostgreSQL unit customized before: "

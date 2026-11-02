@@ -71,6 +71,22 @@ class DnfUpdateHelpersTest(unittest.TestCase):
         self.assertEqual(overridable, [])
         self.assertEqual(len(hard), 2)
 
+    def test_missing_needs_restarting_plugin_is_detected(self) -> None:
+        self.assertFalse(
+            MODULE.reboot_hint_is_available(
+                "", "No such command: needs-restarting. Please use dnf --help"
+            )
+        )
+        self.assertTrue(MODULE.reboot_hint_is_available("Reboot is required", ""))
+
+    def test_kernel_core_package_name_is_normalized(self) -> None:
+        self.assertEqual(
+            MODULE.kernel_version_from_package(
+                "kernel-core-4.18.0-553.82.1.el8_10.x86_64"
+            ),
+            "4.18.0-553.82.1.el8_10.x86_64",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

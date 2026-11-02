@@ -42,6 +42,7 @@ required_files=(
     docs/RELEASE_NOTES_0.3.2.md
     packaging/rpm/steamroller.spec
     tests/test_dnf_update.py
+    tests/managed_os_policy.yml
 )
 
 for required_file in "${required_files[@]}"; do
@@ -98,6 +99,8 @@ grep -qx '0.3.2' VERSION
 grep -q '^Version:[[:space:]]*0.3.2$' packaging/rpm/steamroller.spec
 grep -q 'Current version: \*\*0.3.2\*\*' README.md
 grep -q 'RHEL 8.6+ control-node mini-HOWTO' README.md
+grep -q 'RHEL 8.0-8.10 and RHEL 9.x' roles/precheck/tasks/main.yml
+grep -q 'Managed OS policy: RHEL 8.0-8.10 and RHEL 9.x' scripts/show_config.py
 grep -q 'complete -F _steamroller strl' completions/steamroller.bash
 grep -q '%{_bindir}/strl' packaging/rpm/steamroller.spec
 grep -q '/usr/local/bin/strl' README.md
@@ -125,5 +128,6 @@ python3 scripts/inventory_hostnames.py --inventory inventories/dev/hosts.yml | g
 python3 -m unittest tests/test_inventory_manager.py
 python3 -m unittest tests/test_ssh_key_resolver.py
 python3 -m unittest tests/test_dnf_update.py
+ansible-playbook -i localhost, tests/managed_os_policy.yml >/dev/null
 
 printf 'Static checks passed.\n'

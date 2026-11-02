@@ -1,7 +1,7 @@
 Name:           steamroller
 Version:        0.3.2
 Release:        1%{?dist}
-Summary:        Safe RHEL 9 remote patching precheck automation
+Summary:        Safe RHEL 8 and RHEL 9 remote patching automation
 License:        AGPL-3.0-or-later
 URL:            https://github.com/markhawks/SteamRoller
 Source0:        %{name}-%{version}.tar.gz
@@ -15,8 +15,8 @@ Requires:       python3
 Requires:       python3-pyyaml
 
 %description
-SteamRoller provides conservative, auditable Ansible workflows for RHEL 9
-managed hosts, including assessment, interactive single-host package updates,
+SteamRoller provides conservative, auditable Ansible workflows for RHEL 8.0
+through 8.10 and RHEL 9 managed hosts, including assessment and package updates,
 controlled reboot, and persistent evidence. The control node may run RHEL 9
 or RHEL 10.
 

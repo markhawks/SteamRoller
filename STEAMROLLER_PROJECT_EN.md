@@ -1,20 +1,20 @@
 # Steamroller
 
-**RHEL 9.x Remote Patching & Validation Automation**
+**RHEL 8.0-8.10 and RHEL 9.x Remote Patching & Validation Automation**
 
 ## Scope
 
-Steamroller automates remote patching of **Red Hat Enterprise Linux 9.x
-only**.
+Steamroller automates remote patching of **Red Hat Enterprise Linux 8.0-8.10
+and RHEL 9.x**.
 
-Environment: - RHEL 9.3--9.8 hosts; current target RHEL 9.8 - Red Hat
+Environment: - RHEL 8.0--8.10 and RHEL 9.x hosts - Red Hat
 Satellite provides repositories and Content Views - Ansible CLI is the
 initial execution engine - Future migration to Ansible Automation
 Platform / Automation Controller - No custom GUI - Initial rollout: DEV
 / RELEASE / TEST, then PROD
 
-Do not add support for RHEL 7/8/10 or other distributions. Steamroller
-must not bypass Satellite content management.
+Do not add managed-host support for RHEL 7, RHEL 10, or other distributions.
+Steamroller must not bypass Satellite content management.
 
 ## Goal
 
@@ -72,8 +72,8 @@ ID.
 ## OS
 
 Collect `/etc/redhat-release`, `/etc/os-release`, and
-`rpm -q redhat-release`. Accept **RHEL 9.x only**. Any other OS/major
-release is blocking.
+`rpm -q redhat-release`. Accept **RHEL 8.0-8.10 and RHEL 9.x**. Any other
+OS/version is blocking.
 
 ## Kernel
 
@@ -377,7 +377,7 @@ not duplicate patching logic. Make accidental PROD execution difficult.
 
 # Out of scope for v1
 
--   non-RHEL9 systems
+-   managed systems other than RHEL 8.0-8.10 and RHEL 9.x
 -   Satellite/Content View administration
 -   automatic HA cluster patching
 -   application configuration changes

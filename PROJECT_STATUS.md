@@ -5,7 +5,8 @@ Last updated: 2026-09-23
 Current version: **0.3.2**
 
 Status: version 0.3.2 released; core update and single-host reboot workflows
-validated on real RHEL 9 systems, with multi-host reboot validation pending
+validated on real RHEL 9 systems, with RHEL 8 managed-host and multi-host reboot
+validation pending
 
 Control-node compatibility: RHEL 9/10 supported; RHEL 8.6+ with Python 3.6 is
 experimental and pending complete workflow validation.
@@ -14,7 +15,7 @@ License: AGPL-3.0-or-later
 
 ## Current development scope
 
-SteamRoller manages remote RHEL 9.x hosts from a RHEL 9 or RHEL 10
+SteamRoller manages remote RHEL 8.0-8.10 and RHEL 9.x hosts from a RHEL 9 or RHEL 10
 control node. Its primary workflow is read-only assessment and evidence
 collection. Three changes to managed hosts require explicit operator action:
 
@@ -60,7 +61,7 @@ always interactive and intentionally does not accept `-q`/`--quiet`.
 
 ### Platform and lifecycle
 
-- RHEL 9.x managed-host policy;
+- RHEL 8.0-8.10 and RHEL 9.x managed-host policy;
 - running, installed, newest installed, and planned kernels;
 - uptime severity at 30, 90, and 200 days;
 - update totals for kernel, systemd, and glibc;
@@ -236,6 +237,8 @@ requires validation on a non-production host containing a customized unit.
   inode exhaustion, and hosts that do not return after reboot;
 - validate source installation from clean RHEL 9 and RHEL 10 control nodes;
 - validate the complete workflow from a clean RHEL 8.6+ control node;
+- validate precheck, update, PostgreSQL protection, and reboot against RHEL 8
+  managed hosts across representative minor releases;
 - define report retention and backup policy;
 - improve failed-systemd-unit classification by unit type;
 - complete RPM build and clean installation testing;

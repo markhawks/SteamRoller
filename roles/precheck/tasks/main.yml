@@ -221,6 +221,13 @@
     steamroller_failed_service_lines: >-
       {{ steamroller_failed_services.stdout_lines | default([]) |
          reject('equalto', '') | list }}
+    steamroller_reboot_hint_available: >-
+      {{ 'no such command' not in
+         (((steamroller_reboot_required.stdout | default('')) ~ ' ' ~
+           (steamroller_reboot_required.stderr | default(''))) | lower) and
+         'unknown command' not in
+         (((steamroller_reboot_required.stdout | default('')) ~ ' ' ~
+           (steamroller_reboot_required.stderr | default(''))) | lower) }}
     steamroller_precheck_finished_epoch: "{{ lookup('pipe', 'date +%s') | int }}"
 
 - name: Detect PostgreSQL package provenance
@@ -414,11 +421,25 @@
          else ('WARNING' if (ansible_uptime_seconds | int // 86400) >= steamroller_uptime_warning_days | int
          else 'PASS')) }}
 
+- name: Derive managed operating system policy values
+  ansible.builtin.set_fact:
+    steamroller_rhel_minor_version: >-
+      {{ (ansible_distribution_version.split('.')[1] | default('0', true)) | int }}
+
+- name: Determine whether the managed operating system is supported
+  ansible.builtin.set_fact:
+    steamroller_os_supported: >-
+      {{ ansible_distribution == 'RedHat' and
+         (ansible_distribution_major_version == '9' or
+          (ansible_distribution_major_version == '8' and
+           steamroller_rhel_minor_version | int >= 0 and
+           steamroller_rhel_minor_version | int <= 10)) }}
+
 - name: Build per-check result matrix
   ansible.builtin.set_fact:
     steamroller_checks:
       - name: operating_system
-        status: "{{ 'PASS' if (ansible_distribution == 'RedHat' and ansible_distribution_major_version == '9' and steamroller_redhat_release.rc == 0) else 'FAIL' }}"
+        status: "{{ 'PASS' if (steamroller_os_supported | bool and steamroller_redhat_release.rc == 0) else 'FAIL' }}"
         duration: "{{ steamroller_redhat_release.delta | default('n/a') }}"
       - name: release_package
         status: "{{ 'PASS' if steamroller_release_rpm.rc == 0 else 'FAIL' }}"
@@ -504,13 +525,19 @@
              else ('WARNING' if steamroller_failed_services.stdout | trim | length > 0 else 'PASS') }}
         duration: "{{ steamroller_failed_services.delta | default('n/a') }}"
       - name: reboot_required
-        status: "{{ 'WARNING' if steamroller_reboot_required.rc == 1 else ('PASS' if steamroller_reboot_required.rc == 0 else 'SKIPPED') }}"
+        status: >-
+          {{ 'SKIPPED' if not steamroller_reboot_hint_available else
+             ('WARNING' if steamroller_reboot_required.rc == 1 else
+              ('PASS' if steamroller_reboot_required.rc == 0 else 'SKIPPED')) }}
         duration: "{{ steamroller_reboot_required.delta | default('n/a') }}"
 
 - name: Add unsupported operating system failure
   ansible.builtin.set_fact:
-    steamroller_failures: "{{ steamroller_failures + ['Only RHEL 9.x managed hosts are supported'] }}"
-  when: ansible_distribution != 'RedHat' or ansible_distribution_major_version != '9'
+    steamroller_failures: >-
+      {{ steamroller_failures +
+         ['Supported managed hosts are RHEL 8.0-8.10 and RHEL 9.x; found ' +
+          ansible_distribution + ' ' + ansible_distribution_version] }}
+  when: not steamroller_os_supported | bool
 
 - name: Add mandatory collection failures
   ansible.builtin.set_fact:
@@ -749,7 +776,16 @@
 - name: Add pre-existing reboot requirement warning
   ansible.builtin.set_fact:
     steamroller_warnings: "{{ steamroller_warnings + ['A reboot was already required before patching'] }}"
-  when: steamroller_reboot_required.rc == 1
+  when:
+    - steamroller_reboot_hint_available
+    - steamroller_reboot_required.rc == 1
+
+- name: Add unavailable reboot-hint warning
+  ansible.builtin.set_fact:
+    steamroller_warnings: >-
+      {{ steamroller_warnings +
+         ['Unable to run dnf needs-restarting -r; install yum-utils on the managed host'] }}
+  when: not steamroller_reboot_hint_available or steamroller_reboot_required.rc not in [0, 1]
 
 - name: Add PostgreSQL package query failure
   ansible.builtin.set_fact:

@@ -73,7 +73,7 @@ def main() -> int:
     hostvars = inventory.get("_meta", {}).get("hostvars", {})
     print("STEAMROLLER EFFECTIVE CONFIGURATION")
     print(f"Environment: {args.environment}")
-    print(f"Managed OS policy: RHEL 9.x only")
+    print(f"Managed OS policy: RHEL 8.0-8.10 and RHEL 9.x")
     print(f"Inventory hosts: {len(hostvars)}")
     print()
 

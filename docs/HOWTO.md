@@ -249,6 +249,26 @@ Precheck is read-only unless `--repo-off` is explicitly supplied. It collects:
 - running, enabled, and failed systemd units;
 - custom repository configuration files.
 
+Managed-host OS policy accepts:
+
+```text
+RHEL 8.0 through RHEL 8.10
+RHEL 9.x
+```
+
+Other distributions, RHEL major versions, and RHEL 8 minor versions outside
+0-10 are blocking failures.
+
+On RHEL 8 managed hosts, install `yum-utils` to provide the
+`dnf needs-restarting -r` plug-in used for reboot hints:
+
+```bash
+dnf install -y yum-utils
+```
+
+If it is unavailable, precheck reports a warning. Post-update validation also
+compares the running kernel with the newest installed kernel.
+
 Result levels:
 
 ```text
@@ -516,6 +536,17 @@ steamroller_required_repositories:
   - rhel-9-for-x86_64-baseos-rpms
   - rhel-9-for-x86_64-appstream-rpms
 ```
+
+For a RHEL 8 environment, use the corresponding repository IDs instead:
+
+```yaml
+steamroller_required_repositories:
+  - rhel-8-for-x86_64-baseos-rpms
+  - rhel-8-for-x86_64-appstream-rpms
+```
+
+Satellite custom repository IDs can differ. Always copy the exact values shown
+by `subscription-manager repos --list-enabled` on the managed host.
 
 An empty expected consumer name means that each discovered Satellite consumer
 name is compared automatically with that host's FQDN. Both values and the

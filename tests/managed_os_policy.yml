@@ -1,0 +1,30 @@
+---
+- name: Validate SteamRoller managed operating system policy
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    steamroller_os_policy_cases:
+      - { distribution: RedHat, major: "8", version: "8.0", expected: true }
+      - { distribution: RedHat, major: "8", version: "8.5", expected: true }
+      - { distribution: RedHat, major: "8", version: "8.10", expected: true }
+      - { distribution: RedHat, major: "8", version: "8.11", expected: false }
+      - { distribution: RedHat, major: "7", version: "7.9", expected: false }
+      - { distribution: RedHat, major: "9", version: "9.0", expected: true }
+      - { distribution: RedHat, major: "9", version: "9.99", expected: true }
+      - { distribution: Rocky, major: "8", version: "8.10", expected: false }
+  tasks:
+    - name: Assert managed operating system policy case
+      ansible.builtin.assert:
+        that:
+          - >-
+            item.expected ==
+            (item.distribution == 'RedHat' and
+             (item.major == '9' or
+              (item.major == '8' and
+               ((item.version.split('.')[1] | default('0', true)) | int) >= 0 and
+               ((item.version.split('.')[1] | default('0', true)) | int) <= 10)))
+        fail_msg: "Unexpected policy result for {{ item.distribution }} {{ item.version }}"
+      loop: "{{ steamroller_os_policy_cases }}"
+      loop_control:
+        label: "{{ item.distribution }} {{ item.version }}"
