@@ -216,6 +216,10 @@
     steamroller_glibc_updates: >-
       {{ steamroller_updates.stdout_lines | default([]) |
          select('match', '^glibc[^ ]*[.]') | list }}
+    steamroller_dnf_check_error_lines: >-
+      {{ ((steamroller_dnf_check.stdout_lines | default([])) +
+          (steamroller_dnf_check.stderr_lines | default([]))) |
+         map('trim') | reject('equalto', '') | unique | list }}
     steamroller_postgresql_package_records: >-
       {{ steamroller_postgresql_packages.stdout_lines | default([]) |
          reject('equalto', '') | sort | list }}
@@ -685,6 +689,15 @@
 - name: Add DNF health failure
   ansible.builtin.set_fact:
     steamroller_failures: "{{ steamroller_failures + ['DNF dependency check failed'] }}"
+  when:
+    - steamroller_dnf_check.rc != 0
+    - steamroller_dnf_check_error_lines | length == 0
+
+- name: Add detailed DNF dependency failures
+  ansible.builtin.set_fact:
+    steamroller_failures: >-
+      {{ steamroller_failures + ['DNF dependency check failed: ' + item] }}
+  loop: "{{ steamroller_dnf_check_error_lines }}"
   when: steamroller_dnf_check.rc != 0
 
 - name: Add update-query failure

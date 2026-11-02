@@ -1,0 +1,27 @@
+---
+- name: Validate detailed DNF check findings
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    steamroller_dnf_check:
+      rc: 1
+      stdout_lines:
+        - "Problem: package example-agent requires libexample.so.1()(64bit), but none of the providers can be installed"
+        - ""
+      stderr_lines:
+        - "Error: Check discovered 1 problem(s)"
+  tasks:
+    - name: Normalize DNF check output
+      ansible.builtin.set_fact:
+        steamroller_dnf_check_error_lines: >-
+          {{ ((steamroller_dnf_check.stdout_lines | default([])) +
+              (steamroller_dnf_check.stderr_lines | default([]))) |
+             map('trim') | reject('equalto', '') | unique | list }}
+
+    - name: Assert dependency details are retained for the summary
+      ansible.builtin.assert:
+        that:
+          - steamroller_dnf_check_error_lines | length == 2
+          - "'requires libexample.so.1' in steamroller_dnf_check_error_lines[0]"
+          - "steamroller_dnf_check_error_lines[1] == 'Error: Check discovered 1 problem(s)'"
