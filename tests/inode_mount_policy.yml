@@ -1,0 +1,31 @@
+---
+- name: Validate inode classification with incomplete mount facts
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    steamroller_inode_warning_percent: 80
+    steamroller_inode_failure_percent: 95
+    steamroller_inode_policy_cases:
+      - mount: /complete
+        inode_total: 100
+        inode_used: 96
+      - mount: /missing-inode-facts
+      - mount: /zero-inodes
+        inode_total: 0
+  tasks:
+    - name: Evaluate inode failure expression safely
+      ansible.builtin.set_fact:
+        steamroller_inode_policy_failures: >-
+          {{ (steamroller_inode_policy_failures | default([])) + [item.mount] }}
+      loop: "{{ steamroller_inode_policy_cases }}"
+      when:
+        - item.inode_total | default(0) | int > 0
+        - >-
+          (item.inode_used | default(0) | float * 100.0 /
+           item.inode_total | default(1) | float) >= steamroller_inode_failure_percent | float
+
+    - name: Assert mounts without inode facts are ignored
+      ansible.builtin.assert:
+        that:
+          - steamroller_inode_policy_failures == ['/complete']

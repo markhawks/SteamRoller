@@ -43,6 +43,7 @@ required_files=(
     packaging/rpm/steamroller.spec
     tests/test_dnf_update.py
     tests/managed_os_policy.yml
+    tests/inode_mount_policy.yml
 )
 
 for required_file in "${required_files[@]}"; do
@@ -132,5 +133,6 @@ python3 -m unittest tests/test_inventory_manager.py
 python3 -m unittest tests/test_ssh_key_resolver.py
 python3 -m unittest tests/test_dnf_update.py
 ansible-playbook -i localhost, tests/managed_os_policy.yml >/dev/null
+ansible-playbook -i localhost, tests/inode_mount_policy.yml >/dev/null
 
 printf 'Static checks passed.\n'

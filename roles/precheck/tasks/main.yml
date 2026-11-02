@@ -401,17 +401,23 @@
     steamroller_inode_failure_mounts: "{{ steamroller_inode_failure_mounts + [item.mount] }}"
   loop: "{{ ansible_mounts }}"
   when:
-    - item.inode_total | int > 0
-    - (item.inode_used | float * 100.0 / item.inode_total | float) >= steamroller_inode_failure_percent | float
+    - item.inode_total | default(0) | int > 0
+    - >-
+      (item.inode_used | default(0) | float * 100.0 /
+       item.inode_total | default(1) | float) >= steamroller_inode_failure_percent | float
 
 - name: Classify inode usage warnings
   ansible.builtin.set_fact:
     steamroller_inode_warning_mounts: "{{ steamroller_inode_warning_mounts + [item.mount] }}"
   loop: "{{ ansible_mounts }}"
   when:
-    - item.inode_total | int > 0
-    - (item.inode_used | float * 100.0 / item.inode_total | float) >= steamroller_inode_warning_percent | float
-    - (item.inode_used | float * 100.0 / item.inode_total | float) < steamroller_inode_failure_percent | float
+    - item.inode_total | default(0) | int > 0
+    - >-
+      (item.inode_used | default(0) | float * 100.0 /
+       item.inode_total | default(1) | float) >= steamroller_inode_warning_percent | float
+    - >-
+      (item.inode_used | default(0) | float * 100.0 /
+       item.inode_total | default(1) | float) < steamroller_inode_failure_percent | float
 
 - name: Determine uptime severity
   ansible.builtin.set_fact:
