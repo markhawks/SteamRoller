@@ -12,7 +12,7 @@ node. It provides
 multi-host prechecks, persistent evidence, repository safety controls, and a
 confirmed sequential multi-host reboot workflow.
 
-Current version: **0.3.2**
+Current version: **0.3.3**
 
 ## Highlights
 
@@ -28,7 +28,12 @@ Current version: **0.3.2**
   per-host PRE/POST validation;
 - interactive DNF update of exactly one inventory host with native confirmation;
 - readable fleet summaries plus per-host text and JSON reports;
-- Bash completion for commands, inventories, hosts, options, and SSH profiles.
+- Bash completion for commands, inventories, hosts, options, and SSH profiles;
+- optional host-scoped connectivity, precheck, and repository checks using a
+  repeatable `--host` selector;
+- inode thresholds applied only to local filesystems, with remote mounts listed
+  as excluded evidence;
+- complete `dnf check` dependency errors displayed in the terminal summary.
 
 SteamRoller does **not** perform unattended fleet updates, change Satellite
 assignments, or coordinate clusters and HA applications.
@@ -114,7 +119,7 @@ steamroller inventory list
 Expected SteamRoller version:
 
 ```text
-0.3.2
+0.3.3
 ```
 
 Managed hosts:
@@ -360,6 +365,7 @@ threshold, precheck reports include a complete suggested reboot command.
 
 - [Complete command HOWTO](docs/HOWTO.md)
 - [Project status](PROJECT_STATUS.md)
+- [Version 0.3.3 release notes](docs/RELEASE_NOTES_0.3.3.md)
 - [Version 0.3.2 release notes](docs/RELEASE_NOTES_0.3.2.md)
 - [Version 0.3.1 release notes](docs/RELEASE_NOTES_0.3.1.md)
 - [Version 0.3.0 release notes](docs/RELEASE_NOTES_0.3.0.md)

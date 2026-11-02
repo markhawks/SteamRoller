@@ -1,5 +1,5 @@
 Name:           steamroller
-Version:        0.3.2
+Version:        0.3.3
 Release:        1%{?dist}
 Summary:        Safe RHEL 8 and RHEL 9 remote patching automation
 License:        AGPL-3.0-or-later
@@ -74,6 +74,10 @@ ln -s /opt/steamroller/bin/steamroller %{buildroot}%{_bindir}/strl
 %dir %{_localstatedir}/log/steamroller
 
 %changelog
+* Mon Nov 02 2026 SteamRoller Team <root@localhost> - 0.3.3-1
+- Add host-scoped checks, remote-filesystem inode exclusions, resilient inode
+  fact handling, and detailed DNF dependency failures in terminal summaries
+
 * Fri Oct 30 2026 SteamRoller Team <root@localhost> - 0.3.2-1
 - Add Python 3.6 compatibility for an experimental RHEL 8.6+ control node and
   document the complete RHEL 8 source installation requirements

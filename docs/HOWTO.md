@@ -1,6 +1,6 @@
-# SteamRoller 0.3.2 Operator HOWTO
+# SteamRoller 0.3.3 Operator HOWTO
 
-This document describes every SteamRoller command available in version 0.3.2.
+This document describes every SteamRoller command available in version 0.3.3.
 Examples assume a source checkout in `/root/SteamRoller` and root execution.
 
 ## 1. Install the source command and completion
@@ -30,7 +30,7 @@ steamroller version
 Expected version:
 
 ```text
-0.3.2
+0.3.3
 ```
 
 The installer can be run repeatedly. It replaces its managed `.bashrc` block
@@ -380,7 +380,7 @@ Safety behavior:
 - mounts, kernel, uptime, and failed units are checked after reboot;
 - newly failed units produce a failed result.
 
-There is no `--all` reboot option in version 0.3.2; SteamRoller never expands
+There is no `--all` reboot option in version 0.3.3; SteamRoller never expands
 the command to the complete inventory implicitly.
 
 ## 13. Interactive single-host DNF update

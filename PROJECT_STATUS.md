@@ -1,12 +1,11 @@
 # SteamRoller Project Status
 
-Last updated: 2026-09-23
+Last updated: 2026-11-02
 
-Current version: **0.3.2**
+Current version: **0.3.3**
 
-Status: version 0.3.2 released; core update and single-host reboot workflows
-validated on real RHEL 9 systems, with RHEL 8 managed-host and multi-host reboot
-validation pending
+Status: version 0.3.3 released; core update and reboot workflows validated on
+real RHEL 9 systems, with RHEL 8 managed-host validation pending
 
 Control-node compatibility: RHEL 9/10 supported; RHEL 8.6+ with Python 3.6 is
 experimental and pending complete workflow validation.
@@ -111,11 +110,15 @@ always interactive and intentionally does not accept `-q`/`--quiet`.
 - at least 4096 MiB free on `/`;
 - at least 400 MiB free on `/boot`;
 - inode warnings at 80% and failures at 95%;
+- inode thresholds limited to local filesystems, with NFS and other remote
+  filesystems explicitly reported as excluded;
+- safe handling of mounts for which Ansible does not expose inode facts;
 - mandatory mounts derived from `/etc/fstab`;
 - missing and read-only mandatory mounts;
 - IP addresses, routing, and NetworkManager state;
 - running, enabled, and failed systemd units;
-- `dnf check` and package-manager concurrency.
+- `dnf check` and package-manager concurrency;
+- complete DNF dependency diagnostics in the terminal summary.
 
 ### Controlled reboot
 
@@ -221,7 +224,7 @@ Configuration is validated before contacting managed hosts.
 - native DNF terminal display and manual confirmation;
 - automated tests for PostgreSQL unit detection and update-option completion.
 
-The 0.3.2 workflow, including interactive DNF update and controlled force mode,
+The 0.3.3 workflow, including interactive DNF update and controlled force mode,
 has been exercised successfully by the operator. PostgreSQL unit restoration still
 requires validation on a non-production host containing a customized unit.
 
@@ -252,7 +255,7 @@ requires validation on a non-production host containing a customized unit.
 
 ## Explicitly deferred
 
-- automatic or multi-host reboot;
+- automatic inventory-wide reboot without explicit host selection;
 - unattended or multi-host package updates;
 - cluster and HA detection/orchestration;
 - application stop/start workflows;

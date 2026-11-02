@@ -40,6 +40,7 @@ required_files=(
     docs/RELEASE_NOTES_0.3.0.md
     docs/RELEASE_NOTES_0.3.1.md
     docs/RELEASE_NOTES_0.3.2.md
+    docs/RELEASE_NOTES_0.3.3.md
     packaging/rpm/steamroller.spec
     tests/test_dnf_update.py
     tests/managed_os_policy.yml
@@ -100,9 +101,9 @@ grep -q -- '-F|--force|--Force' bin/steamroller
 grep -q 'Suggested reboot command' scripts/render_summary.py
 grep -q 'POSTGRESQL DETAILS' roles/precheck/templates/precheck.txt.j2
 grep -q 'postgresql.txt' roles/precheck/tasks/main.yml
-grep -qx '0.3.2' VERSION
-grep -q '^Version:[[:space:]]*0.3.2$' packaging/rpm/steamroller.spec
-grep -q 'Current version: \*\*0.3.2\*\*' README.md
+grep -qx '0.3.3' VERSION
+grep -q '^Version:[[:space:]]*0.3.3$' packaging/rpm/steamroller.spec
+grep -q 'Current version: \*\*0.3.3\*\*' README.md
 grep -q 'RHEL 8.6+ control-node mini-HOWTO' README.md
 grep -q 'RHEL 8.0-8.10 and RHEL 9.x' roles/precheck/tasks/main.yml
 grep -q 'Managed OS policy: RHEL 8.0-8.10 and RHEL 9.x' scripts/show_config.py
@@ -117,7 +118,7 @@ bash -n setup/manual/install-source-path.sh
 bash -n completions/steamroller.bash
 short_command_test_dir="$(mktemp -d /tmp/steamroller-short-command.XXXXXX)"
 ln -s "$project_root/bin/steamroller" "$short_command_test_dir/strl"
-"$short_command_test_dir/strl" version | grep -qx '0.3.2'
+"$short_command_test_dir/strl" version | grep -qx '0.3.3'
 unlink "$short_command_test_dir/strl"
 rmdir "$short_command_test_dir"
 python3 -m py_compile scripts/render_summary.py
