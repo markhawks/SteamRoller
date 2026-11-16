@@ -1,6 +1,6 @@
 # SteamRoller Session Handoff
 
-Prepared: 2026-11-02
+Prepared: 2026-11-16
 
 ## Current release
 
@@ -19,6 +19,21 @@ Prepared: 2026-11-02
 - safe inode processing when Ansible omits inode facts;
 - remote filesystems excluded from inode thresholds and listed in reports;
 - detailed `dnf check` failures included in terminal summaries.
+
+## Open operational investigation
+
+- One Satellite-managed host reports its RHSM consumer name as an IPv4 address
+  while the operating-system FQDN is a DNS name.
+- SteamRoller correctly blocks the normal update because an empty
+  `steamroller_expected_consumer_name` enables automatic FQDN comparison.
+- Next session should compare `hostname -f`, DNS and `/etc/hosts`, RHSM facts,
+  `subscription-manager identity`, and the Satellite Content Host UUID.
+- Do not unregister or clean RHSM until the activation key, organization,
+  lifecycle environment, content view, and possible duplicate Content Host
+  have been verified.
+- A per-host `steamroller_expected_consumer_name` override or audited `-F` update
+  is available only after the IP-based consumer identity has been confirmed as
+  intentional.
 
 ## Verification
 
