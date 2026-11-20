@@ -8,7 +8,8 @@ Prepared: 2026-11-20
 - Branch: `main`
 - License: AGPL-3.0-or-later
 - Source workflow validated primarily against real RHEL 9 systems.
-- Managed-host policy: RHEL 8.0-8.10 and RHEL 9.x.
+- Managed-host policy: RHEL 7.0-7.9 assessment-only; RHEL 8.0-8.10 and RHEL
+  9.x assessment/update.
 
 ## Latest completed work
 
@@ -21,6 +22,8 @@ Prepared: 2026-11-20
 - detailed `dnf check` failures included in terminal summaries.
 - dedicated audited acceptance of a known `dnf check` finding, with mandatory
   `dnf update --assumeno` validation and post-update comparison.
+- RHEL 7 precheck through YUM, read-only `yum update --assumeno`, Satellite
+  evidence, `kernel` RPM handling, and an explicit SteamRoller update block.
 
 ## Open operational investigation
 

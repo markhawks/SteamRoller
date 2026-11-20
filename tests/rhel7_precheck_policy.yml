@@ -1,0 +1,36 @@
+---
+- name: Validate RHEL 7 precheck package-manager policy
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    steamroller_rhel7_policy_cases:
+      - rc: 0
+        stdout: "No packages marked for update"
+        stderr: ""
+        expected: true
+      - rc: 1
+        stdout: "Dependencies Resolved\nTransaction Summary\nExiting on user command"
+        stderr: ""
+        expected: true
+      - rc: 1
+        stdout: ""
+        stderr: "Error: Package dependency cannot be resolved"
+        expected: false
+      - rc: 2
+        stdout: ""
+        stderr: "Cannot find a valid baseurl for repo"
+        expected: false
+  tasks:
+    - name: Assert read-only YUM simulation classification
+      ansible.builtin.assert:
+        that:
+          - >-
+            item.expected ==
+            ((item.rc | int == 0) or
+             (item.rc | int == 1 and
+              'dependencies resolved' in ((item.stdout ~ ' ' ~ item.stderr) | lower) and
+              'error:' not in ((item.stdout ~ ' ' ~ item.stderr) | lower)))
+      loop: "{{ steamroller_rhel7_policy_cases }}"
+      loop_control:
+        label: "rc={{ item.rc }} expected={{ item.expected }}"

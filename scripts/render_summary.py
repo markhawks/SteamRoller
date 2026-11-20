@@ -368,6 +368,7 @@ def main() -> int:
             server = row.get("fqdn") or row.get("host")
             status = str(row.get("status", "FAIL"))
             os_data = row.get("os", {}) or {}
+            package_manager = row.get("package_manager", {}) or {}
             kernel = row.get("kernel", {}) or {}
             updates = row.get("updates", {}) or {}
             disk_space = row.get("disk_space", {}) or {}
@@ -378,6 +379,27 @@ def main() -> int:
             print()
             print(f"{palette.bold}{server}{palette.reset} [{palette.status(status)}]")
             print(f"  OS: RHEL {os_data.get('version', '-')}")
+            if package_manager:
+                manager_name = str(package_manager.get("name", "-")).upper()
+                update_supported_value = package_manager.get("update_supported", True)
+                update_supported = (
+                    update_supported_value
+                    if isinstance(update_supported_value, bool)
+                    else str(update_supported_value).lower() in {"true", "yes", "1"}
+                )
+                print(f"  Package manager: {manager_name}")
+                print(
+                    "  SteamRoller update: "
+                    f"{'supported' if update_supported else 'NOT SUPPORTED (assessment-only)'}"
+                )
+                simulation = package_manager.get("read_only_simulation", {}) or {}
+                if simulation.get("command"):
+                    print(
+                        f"  {simulation.get('command')}: "
+                        f"exit {simulation.get('exit_code', '-')}; "
+                        f"resolution "
+                        f"{palette.status('PASS' if simulation.get('successful') else 'FAIL')}"
+                    )
             print(f"  Running kernel: {kernel.get('running', '-')}")
             print(f"  Newest installed kernel: {kernel.get('newest_installed') or '-'}")
             print(f"  Next kernel: {kernel.get('planned') or '-'}")

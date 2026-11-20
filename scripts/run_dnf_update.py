@@ -383,6 +383,10 @@ def kernel_version_from_package(package: str) -> str:
     return package[len(prefix):] if package.startswith(prefix) else package
 
 
+def managed_update_is_supported(version: str) -> bool:
+    return version.split(".", 1)[0] in {"8", "9"}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--inventory", required=True)
@@ -411,6 +415,13 @@ def main() -> int:
             accepted_dnf_check_failures,
             dnf_update_simulation,
         ) = run_precheck(args, run_id, variables)
+        managed_os = precheck.get("os", {}) or {}
+        managed_version = str(managed_os.get("version", ""))
+        if not managed_update_is_supported(managed_version):
+            raise UpdateError(
+                f"SteamRoller update is not supported on RHEL {managed_version or 'unknown'}; "
+                f"use the read-only precheck report in {report_dir}"
+            )
         fqdn = str(precheck.get("fqdn") or args.host)
         reboot_command_parts = [
             "steamroller", "reboot", args.environment, "--host", args.host,

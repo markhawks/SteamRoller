@@ -17,6 +17,8 @@ OS
 --
 {{ steamroller_redhat_release.stdout | default('unavailable') }}
 {{ steamroller_release_rpm.stdout | default('unavailable') }}
+Package manager: {{ steamroller_package_manager | upper }}
+SteamRoller update supported: {{ 'yes' if steamroller_update_supported | bool else 'no (assessment-only)' }}
 
 KERNEL
 ------
@@ -78,7 +80,7 @@ Custom/manual review: {{ steamroller_custom_repo_files | join(', ') if steamroll
 Enabled files: {{ steamroller_enabled_repo_files | join(', ') }}
 Enabled custom files: {{ steamroller_enabled_custom_repo_files | join(', ') if steamroller_enabled_custom_repo_files | length > 0 else 'none' }}
 
-DNF CHECK
+{{ steamroller_package_manager | upper }} CHECK
 ---------
 rc={{ steamroller_dnf_check.rc }}
 {{ steamroller_dnf_check.stdout | default('') }}
@@ -94,6 +96,19 @@ systemd packages: {{ steamroller_systemd_updates | length }}
 glibc packages: {{ steamroller_glibc_updates | length }}
 {{ steamroller_updates.stdout | default('') }}
 {{ steamroller_updates.stderr | default('') }}
+
+{% if steamroller_package_manager == 'yum' %}YUM UPDATE READ-ONLY SIMULATION
+-------------------------------
+Command: yum update --assumeno
+rc={{ steamroller_yum_update_simulation.rc | default('') }}
+Dependency resolution: {{ 'PASS' if steamroller_yum_update_simulation_success | bool else 'FAIL' }}
+{{ steamroller_yum_update_simulation.stdout | default('') }}
+{{ steamroller_yum_update_simulation.stderr | default('') }}
+
+STEAMROLLER UPDATE SUPPORT
+--------------------------
+RHEL 7.x is assessment-only. The SteamRoller update command is not supported.
+{% endif %}
 
 POSTGRESQL DETAILS
 ------------------

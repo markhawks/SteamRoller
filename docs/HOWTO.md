@@ -273,12 +273,25 @@ Precheck is read-only unless `--repo-off` is explicitly supplied. It collects:
 Managed-host OS policy accepts:
 
 ```text
+RHEL 7.0 through RHEL 7.9 (precheck/assessment only)
 RHEL 8.0 through RHEL 8.10
 RHEL 9.x
 ```
 
-Other distributions, RHEL major versions, and RHEL 8 minor versions outside
-0-10 are blocking failures.
+Other distributions and versions outside these ranges are blocking failures.
+
+On RHEL 7, SteamRoller automatically uses YUM, queries the `kernel` package,
+checks RHSM/Satellite registration, and executes these read-only operations:
+
+```bash
+yum -q check
+yum -q check-update
+LC_ALL=C yum update --assumeno
+```
+
+The report records the complete simulation and states that the host is
+assessment-only. The `steamroller update` command always refuses RHEL 7 hosts;
+updates must be managed outside SteamRoller.
 
 On RHEL 8 managed hosts, install `yum-utils` to provide the
 `dnf needs-restarting -r` plug-in used for reboot hints:

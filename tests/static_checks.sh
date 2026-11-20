@@ -44,6 +44,7 @@ required_files=(
     packaging/rpm/steamroller.spec
     tests/test_dnf_update.py
     tests/managed_os_policy.yml
+    tests/rhel7_precheck_policy.yml
     tests/inode_mount_policy.yml
     tests/dnf_check_detail_policy.yml
 )
@@ -64,9 +65,11 @@ if grep -REin \
     exit 1
 fi
 
-if grep -REn --include='*.yml' --include='*.yaml' \
+mutating_package_actions="$(grep -REn --include='*.yml' --include='*.yaml' \
     'ansible\.builtin\.(dnf|yum):|(^|[[:space:]])(dnf|yum)[[:space:]]+(update|upgrade)' \
-    playbooks roles; then
+    playbooks roles | grep -v -- '--assumeno' || true)"
+if [[ -n "$mutating_package_actions" ]]; then
+    printf '%s\n' "$mutating_package_actions"
     printf 'Phase 1 must not contain package update actions.\n' >&2
     exit 1
 fi
@@ -106,8 +109,10 @@ grep -qx '0.3.3' VERSION
 grep -q '^Version:[[:space:]]*0.3.3$' packaging/rpm/steamroller.spec
 grep -q 'Current version: \*\*0.3.3\*\*' README.md
 grep -q 'RHEL 8.6+ control-node mini-HOWTO' README.md
-grep -q 'RHEL 8.0-8.10 and RHEL 9.x' roles/precheck/tasks/main.yml
-grep -q 'Managed OS policy: RHEL 8.0-8.10 and RHEL 9.x' scripts/show_config.py
+grep -q 'RHEL 7.0-7.9, RHEL 8.0-8.10, and RHEL 9.x' roles/precheck/tasks/main.yml
+grep -q 'Managed OS policy: RHEL 7.0-7.9 assessment' scripts/show_config.py
+grep -q 'yum update --assumeno' roles/precheck/tasks/main.yml
+grep -q 'SteamRoller update is not supported on RHEL' scripts/run_dnf_update.py
 grep -q 'complete -F _steamroller strl' completions/steamroller.bash
 grep -q '%{_bindir}/strl' packaging/rpm/steamroller.spec
 grep -q '/usr/local/bin/strl' README.md
@@ -136,6 +141,7 @@ python3 -m unittest tests/test_inventory_manager.py
 python3 -m unittest tests/test_ssh_key_resolver.py
 python3 -m unittest tests/test_dnf_update.py
 ansible-playbook -i localhost, tests/managed_os_policy.yml >/dev/null
+ansible-playbook -i localhost, tests/rhel7_precheck_policy.yml >/dev/null
 ansible-playbook -i localhost, tests/inode_mount_policy.yml >/dev/null
 ansible-playbook -i localhost, tests/dnf_check_detail_policy.yml >/dev/null
 

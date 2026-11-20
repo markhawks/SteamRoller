@@ -87,6 +87,13 @@ class DnfUpdateHelpersTest(unittest.TestCase):
             "4.18.0-553.82.1.el8_10.x86_64",
         )
 
+    def test_managed_update_is_limited_to_rhel_8_and_9(self) -> None:
+        self.assertFalse(MODULE.managed_update_is_supported("7.6"))
+        self.assertTrue(MODULE.managed_update_is_supported("8.10"))
+        self.assertTrue(MODULE.managed_update_is_supported("9.8"))
+        self.assertFalse(MODULE.managed_update_is_supported("10.0"))
+        self.assertFalse(MODULE.managed_update_is_supported(""))
+
     def test_assumeno_accepts_a_resolved_transaction_aborted_by_no(self) -> None:
         self.assertTrue(
             MODULE.dnf_assumeno_succeeded(

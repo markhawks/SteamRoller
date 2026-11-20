@@ -7,8 +7,8 @@
 </p>
 
 SteamRoller is an operator-oriented Ansible tool for assessing remote Red Hat
-Enterprise Linux 8.0-8.10 and RHEL 9 systems from a RHEL 9 or RHEL 10 control
-node. It provides
+Enterprise Linux 7.0-7.9, RHEL 8.0-8.10, and RHEL 9 systems from a RHEL 9 or
+RHEL 10 control node. It provides
 multi-host prechecks, persistent evidence, repository safety controls, and a
 confirmed sequential multi-host reboot workflow.
 
@@ -124,7 +124,8 @@ Expected SteamRoller version:
 
 Managed hosts:
 
-- RHEL 8.0 through RHEL 8.10, or RHEL 9.x;
+- RHEL 7.0 through RHEL 7.9 for read-only assessment;
+- RHEL 8.0 through RHEL 8.10, or RHEL 9.x, for assessment and update;
 - SSH access;
 - Python available to Ansible;
 - root access, currently used directly by the initial release.
@@ -145,6 +146,11 @@ dnf install -y yum-utils
 SteamRoller also compares the running kernel with the newest installed kernel,
 so a kernel-driven reboot requirement remains visible even if the plug-in
 returns an unreliable result.
+
+RHEL 7 uses YUM and the `kernel` RPM. Its precheck runs `yum check`,
+`yum check-update`, and the read-only `yum update --assumeno` simulation. The
+report includes RHSM/Satellite state and clearly marks the host as
+assessment-only. `steamroller update` is intentionally not supported on RHEL 7.
 
 ## Quick start from source
 

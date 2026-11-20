@@ -14,8 +14,9 @@ License: AGPL-3.0-or-later
 
 ## Current development scope
 
-SteamRoller manages remote RHEL 8.0-8.10 and RHEL 9.x hosts from a RHEL 9 or RHEL 10
-control node. Its primary workflow is read-only assessment and evidence
+SteamRoller assesses remote RHEL 7.0-7.9, RHEL 8.0-8.10, and RHEL 9.x hosts
+from a RHEL 9 or RHEL 10 control node. Package update is limited to RHEL 8/9;
+RHEL 7 is assessment-only. Its primary workflow is evidence
 collection. Three changes to managed hosts require explicit operator action:
 
 - quarantine of custom repository files;
@@ -64,7 +65,9 @@ always interactive and intentionally does not accept `-q`/`--quiet`.
 
 ### Platform and lifecycle
 
-- RHEL 8.0-8.10 and RHEL 9.x managed-host policy;
+- RHEL 7.0-7.9 assessment policy using YUM and the `kernel` RPM;
+- RHEL 8.0-8.10 and RHEL 9.x assessment/update policy;
+- read-only `yum update --assumeno` simulation and explicit RHEL 7 update block;
 - running, installed, newest installed, and planned kernels;
 - uptime severity at 30, 90, and 200 days;
 - update totals for kernel, systemd, and glibc;

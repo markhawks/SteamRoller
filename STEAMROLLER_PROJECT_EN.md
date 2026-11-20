@@ -1,6 +1,6 @@
 # Steamroller
 
-**RHEL 8.0-8.10 and RHEL 9.x Remote Patching & Validation Automation**
+**RHEL 7 Assessment and RHEL 8/9 Remote Patching & Validation Automation**
 
 ## Scope
 
@@ -72,7 +72,8 @@ ID.
 ## OS
 
 Collect `/etc/redhat-release`, `/etc/os-release`, and
-`rpm -q redhat-release`. Accept **RHEL 8.0-8.10 and RHEL 9.x**. Any other
+`rpm -q --whatprovides system-release`. Accept **RHEL 7.0-7.9 for assessment,
+and RHEL 8.0-8.10 and RHEL 9.x for assessment/update**. Any other
 OS/version is blocking.
 
 ## Kernel
@@ -377,7 +378,7 @@ not duplicate patching logic. Make accidental PROD execution difficult.
 
 # Out of scope for v1
 
--   managed systems other than RHEL 8.0-8.10 and RHEL 9.x
+-   managed systems outside RHEL 7.0-7.9, RHEL 8.0-8.10, and RHEL 9.x
 -   Satellite/Content View administration
 -   automatic HA cluster patching
 -   application configuration changes
