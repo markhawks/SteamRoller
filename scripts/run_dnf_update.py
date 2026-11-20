@@ -32,6 +32,7 @@ OVERRIDABLE_PRECHECK_FAILURE_PREFIXES = (
     "Mandatory fstab mount is read-only:",
     "Unable to query installed PostgreSQL packages",
 )
+DNF_CHECK_FAILURE_PREFIX = "DNF dependency check failed"
 
 
 class UpdateError(Exception):
@@ -204,9 +205,36 @@ def classify_precheck_failures(failures: List[str]) -> Tuple[List[str], List[str
     return overridable, hard
 
 
+def output_lines(stdout: str, stderr: str) -> List[str]:
+    return list(dict.fromkeys(
+        line.strip()
+        for line in (stdout.splitlines() + stderr.splitlines())
+        if line.strip()
+    ))
+
+
+def dnf_assumeno_succeeded(returncode: int, stdout: str, stderr: str) -> bool:
+    output = stdout + "\n" + stderr
+    return "Error:" not in output and (
+        returncode == 0
+        or (
+            returncode == 1
+            and "Dependencies resolved." in output
+        )
+    )
+
+
+def dnf_failure_details(failures: List[str]) -> List[str]:
+    details = []  # type: List[str]
+    for failure in failures:
+        prefix = DNF_CHECK_FAILURE_PREFIX + ": "
+        details.append(failure[len(prefix):] if failure.startswith(prefix) else failure)
+    return details
+
+
 def run_precheck(
-    args: argparse.Namespace, run_id: str
-) -> Tuple[dict, Path, List[str]]:
+    args: argparse.Namespace, run_id: str, variables: Dict[str, object]
+) -> Tuple[dict, Path, List[str], List[str], Dict[str, object]]:
     command = [
         "ansible-playbook", "-i", args.inventory, args.precheck_playbook,
         "-e", f"@{args.settings}",
@@ -229,10 +257,31 @@ def run_precheck(
     result = subprocess.run(command, check=False)
     precheck, report_dir = load_precheck(Path(args.report_root), run_id, args.host)
     failures = [str(item) for item in (precheck.get("failures", []) or [])]
-    if precheck.get("status") == "FAIL" or failures:
+    dnf_check_failures = [
+        failure for failure in failures
+        if failure.startswith(DNF_CHECK_FAILURE_PREFIX)
+    ]
+    remaining_failures = [
+        failure for failure in failures
+        if not failure.startswith(DNF_CHECK_FAILURE_PREFIX)
+    ]
+    accepted_dnf_check_failures = []  # type: List[str]
+    simulation = {
+        "requested": bool(args.allow_dnf_check_failure),
+        "command": "dnf update --assumeno",
+        "exit_code": None,
+        "successful": False,
+        "report": "",
+    }  # type: Dict[str, object]
+
+    if not args.allow_dnf_check_failure:
+        remaining_failures.extend(dnf_check_failures)
+
+    overridable = []  # type: List[str]
+    if remaining_failures:
         if not args.force:
             raise UpdateError(f"precheck failed; inspect {report_dir / 'precheck.txt'}")
-        overridable, hard = classify_precheck_failures(failures)
+        overridable, hard = classify_precheck_failures(remaining_failures)
         if hard:
             print("\nFORCED UPDATE DENIED — HARD BLOCKERS")
             for failure in hard:
@@ -244,6 +293,58 @@ def run_precheck(
             raise UpdateError("precheck contains failures that --force cannot bypass")
         if not overridable:
             raise UpdateError("precheck failed without a classifiable finding")
+
+    if args.allow_dnf_check_failure:
+        base = ssh_base(args.host, variables, args.ssh_key)
+        simulation_result = remote_capture(
+            base, variables, "LC_ALL=C dnf update --assumeno"
+        )
+        simulation_output = simulation_result.stdout + simulation_result.stderr
+        simulation_success = dnf_assumeno_succeeded(
+            simulation_result.returncode,
+            simulation_result.stdout,
+            simulation_result.stderr,
+        )
+        simulation_path = report_dir / "dnf-update-assumeno.txt"
+        simulation_path.write_text(
+            "STEAMROLLER DNF UPDATE SIMULATION\n"
+            f"Command: dnf update --assumeno\n"
+            f"Exit code: {simulation_result.returncode}\n\n"
+            f"Dependency resolution: {'PASS' if simulation_success else 'FAIL'}\n\n"
+            f"{simulation_output}",
+            encoding="utf-8",
+        )
+        simulation_path.chmod(0o640)
+        simulation.update({
+            "exit_code": simulation_result.returncode,
+            "successful": simulation_success,
+            "report": str(simulation_path),
+        })
+        print("\nDNF UPDATE SIMULATION")
+        print("Command: dnf update --assumeno")
+        print(f"Exit code: {simulation_result.returncode}")
+        print(f"Dependency resolution: {'PASS' if simulation_success else 'FAIL'}")
+        print(f"Evidence: {simulation_path}")
+        if not simulation_success:
+            raise UpdateError(
+                "dnf update --assumeno could not resolve a valid transaction"
+            )
+        if dnf_check_failures:
+            print("\nDNF CHECK EXCEPTION AUTHORIZATION")
+            print("The following dependency findings will remain visible as warnings:")
+            for failure in dnf_check_failures:
+                print(f"  [ACCEPTED WARNING] {failure}")
+            expected = f"ALLOW DNF CHECK {args.host}"
+            try:
+                answer = input(f'Type "{expected}" to continue: ')
+            except EOFError as error:
+                raise UpdateError("DNF check exception confirmation was not provided") from error
+            if answer != expected:
+                raise UpdateError("DNF check exception was cancelled by the operator")
+            accepted_dnf_check_failures = dnf_check_failures
+
+    overridden = []  # type: List[str]
+    if overridable:
         print("\nFORCED UPDATE AUTHORIZATION")
         print("The following precheck failures will be overridden:")
         for failure in overridable:
@@ -255,10 +356,16 @@ def run_precheck(
             raise UpdateError("forced update confirmation was not provided") from error
         if answer != expected:
             raise UpdateError("forced update cancelled by the operator")
-        return precheck, report_dir, overridable
-    if result.returncode != 0:
+        overridden = overridable
+    if result.returncode != 0 and not overridden and not accepted_dnf_check_failures:
         raise UpdateError(f"precheck failed; inspect {report_dir / 'precheck.txt'}")
-    return precheck, report_dir, []
+    return (
+        precheck,
+        report_dir,
+        overridden,
+        accepted_dnf_check_failures,
+        simulation,
+    )
 
 
 def service_name(line: object) -> str:
@@ -290,13 +397,20 @@ def main() -> int:
     parser.add_argument("--renderer", required=True)
     parser.add_argument("--postgresql-unit-mode", choices=("backup", "restore"))
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--allow-dnf-check-failure", action="store_true")
     args = parser.parse_args()
 
     started = int(time.time())
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     try:
         variables = inventory_hostvars(args.inventory, args.host)
-        precheck, report_dir, overridden_precheck_failures = run_precheck(args, run_id)
+        (
+            precheck,
+            report_dir,
+            overridden_precheck_failures,
+            accepted_dnf_check_failures,
+            dnf_update_simulation,
+        ) = run_precheck(args, run_id, variables)
         fqdn = str(precheck.get("fqdn") or args.host)
         reboot_command_parts = [
             "steamroller", "reboot", args.environment, "--host", args.host,
@@ -316,10 +430,14 @@ def main() -> int:
         print(f"Current kernel: {old_kernel or '-'}")
         print(f"Expected kernel: {planned_kernel or '-'}")
         print(f"Precheck result: {precheck.get('status', 'UNKNOWN')}")
-        print(
-            "Update authorization: "
-            f"{'FORCED' if overridden_precheck_failures else 'NORMAL'}"
+        authorization = (
+            "FORCED+DNF_CHECK_EXCEPTION"
+            if overridden_precheck_failures and accepted_dnf_check_failures else
+            "FORCED" if overridden_precheck_failures else
+            "DNF_CHECK_EXCEPTION" if accepted_dnf_check_failures else
+            "NORMAL"
         )
+        print(f"Update authorization: {authorization}")
         print()
         print("DNF will display the complete transaction and ask Is this ok [y/N].")
         print("No package is changed unless you answer y at the native DNF prompt.")
@@ -355,7 +473,7 @@ def main() -> int:
                 print()
         transaction_log = report_dir / "dnf-transaction.log"
         update_command = ssh_base(args.host, variables, args.ssh_key, tty=True) + [
-            privileged("dnf upgrade", variables)
+            privileged("dnf update", variables)
         ]
         transaction_rc, transaction_output = stream_transaction(update_command, transaction_log)
 
@@ -472,12 +590,31 @@ def main() -> int:
             warnings.append(
                 f"Forced update overrode {len(overridden_precheck_failures)} precheck failure(s)"
             )
+        if accepted_dnf_check_failures:
+            warnings.append(
+                f"Operator accepted {len(accepted_dnf_check_failures)} pre-existing dnf check finding(s)"
+            )
         if cancelled:
             warnings.append("DNF transaction was cancelled by the operator")
         elif transaction_rc != 0:
             failures.append(f"DNF transaction exited with code {transaction_rc}")
+        post_dnf_check_lines = output_lines(dnf_check.stdout, dnf_check.stderr)
+        accepted_dnf_details = dnf_failure_details(accepted_dnf_check_failures)
+        new_post_dnf_findings = [
+            line for line in post_dnf_check_lines
+            if line not in accepted_dnf_details
+        ]
         if dnf_check.returncode != 0:
-            failures.append("dnf check failed after the transaction")
+            if accepted_dnf_check_failures and not new_post_dnf_findings:
+                warnings.append(
+                    "Accepted pre-existing dnf check dependency finding remains after the transaction"
+                )
+            else:
+                failures.append("dnf check failed after the transaction")
+                failures.extend(
+                    f"Post-update DNF dependency finding: {line}"
+                    for line in new_post_dnf_findings
+                )
         if kernel.returncode != 0 or installed_kernels.returncode != 0:
             failures.append("Unable to collect post-update kernel state")
         if new_failed:
@@ -530,6 +667,10 @@ def main() -> int:
                 "transaction_exit_code": transaction_rc,
                 "cancelled": cancelled,
                 "dnf_check_exit_code": dnf_check.returncode,
+                "dnf_check_findings_after": post_dnf_check_lines,
+                "new_dnf_check_findings_after": new_post_dnf_findings,
+                "accepted_dnf_check_failures": accepted_dnf_check_failures,
+                "assumeno_simulation": dnf_update_simulation,
                 "reboot_required": reboot_is_required,
                 "reboot_hint_available": reboot_hint_available,
                 "remaining_updates": remaining_lines,
@@ -539,9 +680,7 @@ def main() -> int:
                 "history": history.stdout,
                 "transaction_log": str(transaction_log),
                 "suggested_reboot_command": reboot_command,
-                "authorization": (
-                    "FORCED" if overridden_precheck_failures else "NORMAL"
-                ),
+                "authorization": authorization,
                 "overridden_precheck_failures": overridden_precheck_failures,
                 "postgresql_unit": {
                     "mode": args.postgresql_unit_mode or "disabled",
@@ -571,10 +710,16 @@ def main() -> int:
             f"Host: {fqdn}\n"
             f"Result: {status}\n"
             f"Transaction exit code: {transaction_rc}\n"
-            f"Update authorization: "
-            f"{'FORCED' if overridden_precheck_failures else 'NORMAL'}\n"
+            f"Update authorization: {authorization}\n"
             f"Overridden precheck failures: "
             f"{len(overridden_precheck_failures)}\n"
+            f"Accepted DNF check findings: {len(accepted_dnf_check_failures)}\n"
+            f"DNF update --assumeno exit code: "
+            f"{dnf_update_simulation.get('exit_code')}\n"
+            f"DNF update --assumeno resolution: "
+            f"{'PASS' if dnf_update_simulation.get('successful') else 'NOT REQUESTED'}\n"
+            f"Post-update dnf check exit code: {dnf_check.returncode}\n"
+            f"Post-update dnf check new findings: {len(new_post_dnf_findings)}\n"
             f"Previous kernel: {old_kernel}\n"
             f"Current kernel: {kernel.stdout.strip()}\n"
             f"Newest installed kernel: {newest_kernel}\n"
@@ -591,6 +736,16 @@ def main() -> int:
                 for failure in overridden_precheck_failures
             )
             + ("\n" if overridden_precheck_failures else "")
+            + "".join(
+                f"ACCEPTED DNF CHECK WARNING: {failure}\n"
+                for failure in accepted_dnf_check_failures
+            )
+            + ("\n" if accepted_dnf_check_failures else "")
+            + "".join(
+                f"POST-UPDATE DNF CHECK: {line}\n"
+                for line in post_dnf_check_lines
+            )
+            + ("\n" if post_dnf_check_lines else "")
             +
             f"Suggested reboot command: {reboot_command}\n\n"
             "DNF HISTORY LAST\n"

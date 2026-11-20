@@ -441,8 +441,35 @@ overridable. A read-only critical filesystem (`/`, `/boot`, `/boot/efi`, `/var`,
 `/var/log`, or `/tmp`) also remains a hard blocker.
 
 Other hard blockers include insufficient free space or inodes, unsupported OS,
-failed mandatory collection, unavailable required repositories, `dnf check` or
-update-query failure, and an active `dnf`, `yum`, or `rpm` process.
+failed mandatory collection, unavailable required repositories, update-query
+failure, and an active `dnf`, `yum`, or `rpm` process.
+
+### Accept a known pre-existing DNF check finding
+
+Do not use generic force for dependency health. If `dnf check` reports a known
+pre-existing vendor dependency but `dnf update --assumeno` can resolve a valid
+transaction, use the dedicated exception:
+
+```bash
+steamroller update ORION-LAB \
+  --host velora-db-a01.ops.example \
+  -sk foreman \
+  --allow-dnf-check-failure
+```
+
+SteamRoller reruns `dnf check`, retains every dependency finding, executes
+`LC_ALL=C dnf update --assumeno`, and writes `dnf-update-assumeno.txt`. A
+failed simulation stops the operation. A successful simulation requires the
+exact confirmation:
+
+```text
+ALLOW DNF CHECK velora-db-a01.ops.example
+```
+
+The real `dnf update` remains interactive and still asks `Is this ok [y/N]`.
+The report is marked `DNF_CHECK_EXCEPTION` and cannot finish as `PASS`. After
+the transaction, an unchanged accepted finding remains a warning; any new DNF
+dependency finding is a failure.
 
 ### Protect a customized PostgreSQL systemd unit
 

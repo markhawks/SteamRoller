@@ -289,6 +289,22 @@ collection failures remain hard blockers. A mandatory fstab mount reported as
 read-only is overridable; a critical filesystem such as `/` or `/boot` being
 read-only remains blocking. Forced runs can never finish as `PASS`.
 
+A known pre-existing `dnf check` dependency finding has a separate, narrower
+exception. After reviewing the normal failed precheck, run:
+
+```bash
+steamroller update ORION-LAB \
+  --host velora-db-a01.ops.example \
+  -sk foreman \
+  --allow-dnf-check-failure
+```
+
+SteamRoller preserves the original finding, runs `dnf update --assumeno`, and
+continues only when DNF resolves a valid transaction. The operator must type
+`ALLOW DNF CHECK HOST`; the native DNF confirmation is still required. The
+final result is at least `WARNING`, and any new post-update dependency finding
+remains a blocking failure.
+
 For legacy installations that modified the vendor PostgreSQL systemd unit,
 SteamRoller can preserve it during the update:
 

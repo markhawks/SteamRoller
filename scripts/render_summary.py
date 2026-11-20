@@ -283,6 +283,9 @@ def main() -> int:
             cancelled = bool(update.get("cancelled", False))
             authorization = str(update.get("authorization", "NORMAL"))
             overridden = list(update.get("overridden_precheck_failures", []) or [])
+            accepted_dnf = list(update.get("accepted_dnf_check_failures", []) or [])
+            new_dnf = list(update.get("new_dnf_check_findings_after", []) or [])
+            simulation = update.get("assumeno_simulation", {}) or {}
             print()
             print(f"{palette.bold}{server}{palette.reset} [{palette.status(status)}]")
             print(f"  Packages available before: {updates.get('before', '-')}")
@@ -294,13 +297,31 @@ def main() -> int:
                 print("  Overridden precheck failures:")
                 for finding in overridden:
                     print(f"    [{palette.status('WARNING')}] {finding}")
+            if simulation.get("requested"):
+                print("  DNF update --assumeno:")
+                print(f"    Exit code: {simulation.get('exit_code', '-')}")
+                print(
+                    "    Dependency resolution: "
+                    f"{palette.status('PASS' if simulation.get('successful') else 'FAIL')}"
+                )
+                print(f"    Evidence: {simulation.get('report') or '-'}")
+            if accepted_dnf:
+                print("  Accepted pre-existing DNF check findings:")
+                for finding in accepted_dnf:
+                    print(f"    [{palette.status('WARNING')}] {finding}")
             print(f"  Previous running kernel: {kernel.get('previous') or '-'}")
             print(f"  Current running kernel: {kernel.get('running') or '-'}")
             print(f"  Newest installed kernel: {kernel.get('newest_installed') or '-'}")
-            print(
-                "  DNF package check: "
-                f"{palette.status('PASS' if update.get('dnf_check_exit_code') == 0 else 'FAIL')}"
+            dnf_check_status = (
+                "PASS" if update.get("dnf_check_exit_code") == 0 else
+                "WARNING" if accepted_dnf and not new_dnf else
+                "FAIL"
             )
+            print(f"  DNF package check: {palette.status(dnf_check_status)}")
+            if new_dnf:
+                print("  New post-update DNF findings:")
+                for finding in new_dnf:
+                    print(f"    [{palette.status('FAIL')}] {finding}")
             print(f"  Reboot required: {'yes' if update.get('reboot_required') else 'no'}")
             print("  New failed services:")
             if new_failed:

@@ -146,12 +146,16 @@ always interactive and intentionally does not accept `-q`/`--quiet`.
 - exactly one host selected from the requested inventory;
 - complete precheck executed immediately before updating;
 - blocking precheck failures stop the operation;
-- native `dnf upgrade` transaction displayed through an SSH pseudo-terminal;
+- native `dnf update` transaction displayed through an SSH pseudo-terminal;
 - package installation requires the native DNF `Is this ok [y/N]` answer;
 - reviewed policy failures can be overridden with `-F`/`--force`, typed host
   confirmation, explicit audit evidence, and a minimum `WARNING` result;
 - read-only mandatory fstab mounts are overridable, while missing mounts and
   read-only critical filesystems remain hard blockers;
+- dedicated `--allow-dnf-check-failure` workflow for reviewed, pre-existing
+  dependency findings, guarded by a successful `dnf update --assumeno`, typed
+  confirmation, and explicit warning evidence;
+- new post-update DNF dependency findings remain blocking failures;
 - complete transaction log and DNF history evidence;
 - optional PostgreSQL vendor-unit backup, comparison, and explicit restoration;
 - remaining updates, kernel state, `dnf check`, reboot requirement, and newly

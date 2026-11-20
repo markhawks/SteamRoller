@@ -87,6 +87,32 @@ class DnfUpdateHelpersTest(unittest.TestCase):
             "4.18.0-553.82.1.el8_10.x86_64",
         )
 
+    def test_assumeno_accepts_a_resolved_transaction_aborted_by_no(self) -> None:
+        self.assertTrue(
+            MODULE.dnf_assumeno_succeeded(
+                1,
+                "Dependencies resolved.\nIs this ok [y/N]: N\nOperation aborted.",
+                "",
+            )
+        )
+
+    def test_assumeno_rejects_dependency_resolution_errors(self) -> None:
+        self.assertFalse(
+            MODULE.dnf_assumeno_succeeded(
+                1,
+                "",
+                "Error: package dependency cannot be installed",
+            )
+        )
+
+    def test_dnf_failure_details_remove_only_the_summary_prefix(self) -> None:
+        self.assertEqual(
+            MODULE.dnf_failure_details(
+                ["DNF dependency check failed: package-a requires libexample.so.1"]
+            ),
+            ["package-a requires libexample.so.1"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

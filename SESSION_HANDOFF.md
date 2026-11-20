@@ -1,6 +1,6 @@
 # SteamRoller Session Handoff
 
-Prepared: 2026-11-16
+Prepared: 2026-11-20
 
 ## Current release
 
@@ -19,6 +19,8 @@ Prepared: 2026-11-16
 - safe inode processing when Ansible omits inode facts;
 - remote filesystems excluded from inode thresholds and listed in reports;
 - detailed `dnf check` failures included in terminal summaries.
+- dedicated audited acceptance of a known `dnf check` finding, with mandatory
+  `dnf update --assumeno` validation and post-update comparison.
 
 ## Open operational investigation
 
