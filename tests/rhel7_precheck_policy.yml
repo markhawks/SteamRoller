@@ -44,3 +44,10 @@
       ansible.builtin.assert:
         that:
           - steamroller_test_missing_capability == 'MFEcma(x86-64)'
+
+    - name: Assert package-manager subscription warning detection
+      ansible.builtin.assert:
+        that:
+          - >-
+            'not receiving updates' in
+            ('This system is registered with an entitlement server, but is not receiving updates.' | lower)

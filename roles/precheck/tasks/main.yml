@@ -799,6 +799,16 @@
     - steamroller_package_update_simulation_success | bool
     - "' missing requires of ' in item"
 
+- name: Add subscription content-access warning reported by package manager
+  ansible.builtin.set_fact:
+    steamroller_warnings: >-
+      {{ steamroller_warnings +
+         ['Subscription warning: the host is registered but reports that it is not receiving updates; verify subscription attachment or Simple Content Access, Satellite Content View/Lifecycle Environment, and enabled repositories'] }}
+  when: >-
+    'not receiving updates' in
+    (((steamroller_dnf_check.stdout | default('')) ~ ' ' ~
+      (steamroller_dnf_check.stderr | default(''))) | lower)
+
 - name: Add update-query failure
   ansible.builtin.set_fact:
     steamroller_failures: >-
