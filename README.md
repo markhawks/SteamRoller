@@ -41,6 +41,8 @@ simulation. If `dnf check` reports an existing dependency issue but
 as an explained `WARNING` instead of a blocking failure. A failed simulation
 or update query remains `FAIL`. The real update still requires the explicit
 `--allow-dnf-check-failure` authorization.
+For missing requirements, the summary includes `rpm --whatprovides` and the
+appropriate `yum/dnf provides` command as possible remediation guidance.
 
 SteamRoller does **not** perform unattended fleet updates, change Satellite
 assignments, or coordinate clusters and HA applications.

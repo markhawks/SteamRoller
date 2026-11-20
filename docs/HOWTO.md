@@ -299,6 +299,17 @@ warnings only when DNF resolves a valid update transaction. They remain visible
 in terminal, text, and JSON reports. If transaction resolution fails, the
 precheck remains blocking.
 
+For `missing requires` findings, the summary extracts the missing capability
+and suggests read-only provider searches, for example:
+
+```bash
+rpm -q --whatprovides "MFEcma(x86-64)"
+yum provides "MFEcma(x86-64)"
+```
+
+SteamRoller never installs, removes, or repairs the vendor package during
+precheck.
+
 On RHEL 8 managed hosts, install `yum-utils` to provide the
 `dnf needs-restarting -r` plug-in used for reboot hints:
 

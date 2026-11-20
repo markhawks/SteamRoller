@@ -290,6 +290,17 @@
     steamroller_postgresql_redhat_detected: >-
       {{ 'red hat' in (steamroller_postgresql_package_records | join(' ') | lower) }}
 
+- name: Normalize package dependency findings
+  ansible.builtin.set_fact:
+    steamroller_package_health_finding_lines: >-
+      {{ (steamroller_dnf_check_error_lines |
+          select('search', '(has missing requires of|has installed conflicts|is a duplicate|^Error:)') |
+          list)
+         if (steamroller_dnf_check_error_lines |
+             select('search', '(has missing requires of|has installed conflicts|is a duplicate|^Error:)') |
+             list | length > 0)
+         else steamroller_dnf_check_error_lines }}
+
 - name: Classify PostgreSQL package source
   ansible.builtin.set_fact:
     steamroller_postgresql_source: >-
@@ -750,7 +761,7 @@
     steamroller_failures: >-
       {{ steamroller_failures +
          [(steamroller_package_manager | upper) + ' dependency check failed: ' + item] }}
-  loop: "{{ steamroller_dnf_check_error_lines }}"
+  loop: "{{ steamroller_package_health_finding_lines }}"
   when:
     - steamroller_dnf_check.rc != 0
     - not steamroller_package_update_simulation_success | bool
@@ -764,12 +775,29 @@
           (steamroller_package_manager | lower) +
           ' update --assumeno resolved a valid transaction: ' + item] }}
   loop: >-
-    {{ steamroller_dnf_check_error_lines
-       if steamroller_dnf_check_error_lines | length > 0
+    {{ steamroller_package_health_finding_lines
+       if steamroller_package_health_finding_lines | length > 0
        else ['dependency check returned no diagnostic text'] }}
   when:
     - steamroller_dnf_check.rc != 0
     - steamroller_package_update_simulation_success | bool
+
+- name: Add possible solutions for missing package requirements
+  ansible.builtin.set_fact:
+    steamroller_warnings: >-
+      {{ steamroller_warnings +
+         ['Possible solution for missing requirement ' +
+          ((item.split(' missing requires of ', 1)[1]).split()[0]) +
+          ': run rpm -q --whatprovides "' +
+          ((item.split(' missing requires of ', 1)[1]).split()[0]) +
+          '" and ' + steamroller_package_manager + ' provides "' +
+          ((item.split(' missing requires of ', 1)[1]).split()[0]) +
+          '"; then verify the vendor repository or reinstall the package providing it'] }}
+  loop: "{{ steamroller_package_health_finding_lines }}"
+  when:
+    - steamroller_dnf_check.rc != 0
+    - steamroller_package_update_simulation_success | bool
+    - "' missing requires of ' in item"
 
 - name: Add update-query failure
   ansible.builtin.set_fact:
@@ -985,7 +1013,7 @@
         name: "{{ steamroller_package_manager }}"
         update_supported: "{{ steamroller_update_supported }}"
         health_exit_code: "{{ steamroller_dnf_check.rc }}"
-        health_findings: "{{ steamroller_dnf_check_error_lines }}"
+        health_findings: "{{ steamroller_package_health_finding_lines }}"
         update_query_exit_code: "{{ steamroller_updates.rc }}"
         read_only_simulation:
           command: "{{ steamroller_package_manager }} update --assumeno"

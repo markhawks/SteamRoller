@@ -34,3 +34,13 @@
       loop: "{{ steamroller_rhel7_policy_cases }}"
       loop_control:
         label: "rc={{ item.rc }} expected={{ item.expected }}"
+
+    - name: Extract a vendor capability from a missing-requires finding
+      ansible.builtin.set_fact:
+        steamroller_test_missing_capability: >-
+          {{ ('McAfeeESP-10.7.5-139.x86_64 has missing requires of MFEcma(x86-64) >= (0, 5.6.4, 110)'.split(' missing requires of ', 1)[1]).split()[0] }}
+
+    - name: Assert actionable missing-requirement guidance input
+      ansible.builtin.assert:
+        that:
+          - steamroller_test_missing_capability == 'MFEcma(x86-64)'
