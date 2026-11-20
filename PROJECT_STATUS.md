@@ -122,6 +122,9 @@ always interactive and intentionally does not accept `-q`/`--quiet`.
 - running, enabled, and failed systemd units;
 - `dnf check` and package-manager concurrency;
 - complete DNF dependency diagnostics in the terminal summary.
+- read-only package update simulation on every supported managed host;
+- DNF health findings downgraded to explained warnings only when
+  `dnf update --assumeno` resolves a valid transaction;
 
 ### Controlled reboot
 

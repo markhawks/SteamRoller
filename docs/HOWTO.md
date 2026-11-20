@@ -293,6 +293,12 @@ The report records the complete simulation and states that the host is
 assessment-only. The `steamroller update` command always refuses RHEL 7 hosts;
 updates must be managed outside SteamRoller.
 
+On RHEL 8/9, precheck also compares `dnf check` with the read-only
+`dnf update --assumeno` result. Existing dependency findings become explained
+warnings only when DNF resolves a valid update transaction. They remain visible
+in terminal, text, and JSON reports. If transaction resolution fails, the
+precheck remains blocking.
+
 On RHEL 8 managed hosts, install `yum-utils` to provide the
 `dnf needs-restarting -r` plug-in used for reboot hints:
 

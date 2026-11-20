@@ -35,6 +35,13 @@ Current version: **0.3.3**
   as excluded evidence;
 - complete `dnf check` dependency errors displayed in the terminal summary.
 
+Precheck compares package-health findings with a read-only package transaction
+simulation. If `dnf check` reports an existing dependency issue but
+`dnf update --assumeno` resolves a valid transaction, the finding is retained
+as an explained `WARNING` instead of a blocking failure. A failed simulation
+or update query remains `FAIL`. The real update still requires the explicit
+`--allow-dnf-check-failure` authorization.
+
 SteamRoller does **not** perform unattended fleet updates, change Satellite
 assignments, or coordinate clusters and HA applications.
 

@@ -24,6 +24,9 @@ Prepared: 2026-11-20
   `dnf update --assumeno` validation and post-update comparison.
 - RHEL 7 precheck through YUM, read-only `yum update --assumeno`, Satellite
   evidence, `kernel` RPM handling, and an explicit SteamRoller update block.
+- RHEL 8/9 precheck comparison of `dnf check` with `dnf update --assumeno`;
+  resolvable pre-existing findings are warnings, while failed simulations and
+  new post-update findings remain blocking.
 
 ## Open operational investigation
 

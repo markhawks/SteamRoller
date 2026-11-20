@@ -97,14 +97,15 @@ glibc packages: {{ steamroller_glibc_updates | length }}
 {{ steamroller_updates.stdout | default('') }}
 {{ steamroller_updates.stderr | default('') }}
 
-{% if steamroller_package_manager == 'yum' %}YUM UPDATE READ-ONLY SIMULATION
--------------------------------
-Command: yum update --assumeno
-rc={{ steamroller_yum_update_simulation.rc | default('') }}
-Dependency resolution: {{ 'PASS' if steamroller_yum_update_simulation_success | bool else 'FAIL' }}
-{{ steamroller_yum_update_simulation.stdout | default('') }}
-{{ steamroller_yum_update_simulation.stderr | default('') }}
+{{ steamroller_package_manager | upper }} UPDATE READ-ONLY SIMULATION
+--------------------------------
+Command: {{ steamroller_package_manager }} update --assumeno
+rc={{ steamroller_package_update_simulation.rc | default('') }}
+Dependency resolution: {{ 'PASS' if steamroller_package_update_simulation_success | bool else 'FAIL' }}
+{{ steamroller_package_update_simulation.stdout | default('') }}
+{{ steamroller_package_update_simulation.stderr | default('') }}
 
+{% if steamroller_package_manager == 'yum' %}
 STEAMROLLER UPDATE SUPPORT
 --------------------------
 RHEL 7.x is assessment-only. The SteamRoller update command is not supported.

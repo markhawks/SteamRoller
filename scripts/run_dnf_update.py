@@ -261,6 +261,15 @@ def run_precheck(
         failure for failure in failures
         if failure.startswith(DNF_CHECK_FAILURE_PREFIX)
     ]
+    package_manager = precheck.get("package_manager", {}) or {}
+    if (
+        str(package_manager.get("name", "")).lower() == "dnf"
+        and int(package_manager.get("health_exit_code", 0)) != 0
+    ):
+        for finding in list(package_manager.get("health_findings", []) or []):
+            synthesized = DNF_CHECK_FAILURE_PREFIX + ": " + str(finding)
+            if synthesized not in dnf_check_failures:
+                dnf_check_failures.append(synthesized)
     remaining_failures = [
         failure for failure in failures
         if not failure.startswith(DNF_CHECK_FAILURE_PREFIX)
@@ -276,6 +285,12 @@ def run_precheck(
 
     if not args.allow_dnf_check_failure:
         remaining_failures.extend(dnf_check_failures)
+
+    if dnf_check_failures and not args.allow_dnf_check_failure:
+        raise UpdateError(
+            "precheck found DNF dependency warnings; review them and rerun with "
+            "--allow-dnf-check-failure to authorize the audited exception"
+        )
 
     overridable = []  # type: List[str]
     if remaining_failures:

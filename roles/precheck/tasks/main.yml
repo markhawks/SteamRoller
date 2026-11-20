@@ -220,14 +220,13 @@
   register: steamroller_reboot_required
   failed_when: false
 
-- name: Simulate a read-only YUM update on RHEL 7
-  ansible.builtin.command: yum update --assumeno
+- name: Simulate a read-only package update
+  ansible.builtin.command: "{{ steamroller_package_manager }} update --assumeno"
   environment:
     LC_ALL: C
   changed_when: false
-  register: steamroller_yum_update_simulation
+  register: steamroller_package_update_simulation
   failed_when: false
-  when: steamroller_package_manager == 'yum'
 
 - name: Derive update and service statistics
   ansible.builtin.set_fact:
@@ -267,16 +266,15 @@
          'unknown command' not in
          (((steamroller_reboot_required.stdout | default('')) ~ ' ' ~
            (steamroller_reboot_required.stderr | default(''))) | lower) }}
-    steamroller_yum_update_simulation_success: >-
-      {{ true if steamroller_package_manager != 'yum' else
-         ((steamroller_yum_update_simulation.rc | default(2) | int == 0) or
-          (steamroller_yum_update_simulation.rc | default(2) | int == 1 and
+    steamroller_package_update_simulation_success: >-
+      {{ ((steamroller_package_update_simulation.rc | default(2) | int == 0) or
+          (steamroller_package_update_simulation.rc | default(2) | int == 1 and
            'dependencies resolved' in
-           (((steamroller_yum_update_simulation.stdout | default('')) ~ ' ' ~
-             (steamroller_yum_update_simulation.stderr | default(''))) | lower) and
+           (((steamroller_package_update_simulation.stdout | default('')) ~ ' ' ~
+             (steamroller_package_update_simulation.stderr | default(''))) | lower) and
            'error:' not in
-           (((steamroller_yum_update_simulation.stdout | default('')) ~ ' ' ~
-             (steamroller_yum_update_simulation.stderr | default(''))) | lower))) }}
+           (((steamroller_package_update_simulation.stdout | default('')) ~ ' ' ~
+             (steamroller_package_update_simulation.stderr | default(''))) | lower))) }}
     steamroller_precheck_finished_epoch: "{{ lookup('pipe', 'date +%s') | int }}"
 
 - name: Detect PostgreSQL package provenance
@@ -557,11 +555,10 @@
       - name: available_updates
         status: "{{ 'PASS' if steamroller_updates.rc in [0, 100] else 'FAIL' }}"
         duration: "{{ steamroller_updates.delta | default('n/a') }}"
-      - name: yum_update_simulation
+      - name: package_update_simulation
         status: >-
-          {{ ('PASS' if steamroller_yum_update_simulation_success | bool else 'FAIL')
-             if steamroller_package_manager == 'yum' else 'SKIPPED' }}
-        duration: "{{ steamroller_yum_update_simulation.delta | default('n/a') }}"
+          {{ 'PASS' if steamroller_package_update_simulation_success | bool else 'FAIL' }}
+        duration: "{{ steamroller_package_update_simulation.delta | default('n/a') }}"
       - name: postgresql_packages
         status: >-
           {{ 'FAIL' if steamroller_postgresql_packages.rc != 0 else
@@ -746,6 +743,7 @@
   when:
     - steamroller_dnf_check.rc != 0
     - steamroller_dnf_check_error_lines | length == 0
+    - not steamroller_package_update_simulation_success | bool
 
 - name: Add detailed package-manager dependency failures
   ansible.builtin.set_fact:
@@ -753,7 +751,25 @@
       {{ steamroller_failures +
          [(steamroller_package_manager | upper) + ' dependency check failed: ' + item] }}
   loop: "{{ steamroller_dnf_check_error_lines }}"
-  when: steamroller_dnf_check.rc != 0
+  when:
+    - steamroller_dnf_check.rc != 0
+    - not steamroller_package_update_simulation_success | bool
+
+- name: Add explained package dependency warnings when update simulation resolves
+  ansible.builtin.set_fact:
+    steamroller_warnings: >-
+      {{ steamroller_warnings +
+         [(steamroller_package_manager | upper) +
+          ' dependency check warning; ' +
+          (steamroller_package_manager | lower) +
+          ' update --assumeno resolved a valid transaction: ' + item] }}
+  loop: >-
+    {{ steamroller_dnf_check_error_lines
+       if steamroller_dnf_check_error_lines | length > 0
+       else ['dependency check returned no diagnostic text'] }}
+  when:
+    - steamroller_dnf_check.rc != 0
+    - steamroller_package_update_simulation_success | bool
 
 - name: Add update-query failure
   ansible.builtin.set_fact:
@@ -762,14 +778,14 @@
          [(steamroller_package_manager | upper) + ' update query failed'] }}
   when: steamroller_updates.rc not in [0, 100]
 
-- name: Add RHEL 7 read-only update simulation failure
+- name: Add read-only package update simulation failure
   ansible.builtin.set_fact:
     steamroller_failures: >-
       {{ steamroller_failures +
-         ['YUM update --assumeno could not resolve a valid transaction'] }}
+         [(steamroller_package_manager | upper) +
+          ' update --assumeno could not resolve a valid transaction'] }}
   when:
-    - steamroller_package_manager == 'yum'
-    - not steamroller_yum_update_simulation_success | bool
+    - not steamroller_package_update_simulation_success | bool
 
 - name: Add RHEL 7 assessment-only warning
   ansible.builtin.set_fact:
@@ -969,17 +985,12 @@
         name: "{{ steamroller_package_manager }}"
         update_supported: "{{ steamroller_update_supported }}"
         health_exit_code: "{{ steamroller_dnf_check.rc }}"
+        health_findings: "{{ steamroller_dnf_check_error_lines }}"
         update_query_exit_code: "{{ steamroller_updates.rc }}"
         read_only_simulation:
-          command: >-
-            {{ 'yum update --assumeno'
-               if steamroller_package_manager == 'yum' else '' }}
-          exit_code: >-
-            {{ steamroller_yum_update_simulation.rc | default('')
-               if steamroller_package_manager == 'yum' else '' }}
-          successful: >-
-            {{ steamroller_yum_update_simulation_success
-               if steamroller_package_manager == 'yum' else true }}
+          command: "{{ steamroller_package_manager }} update --assumeno"
+          exit_code: "{{ steamroller_package_update_simulation.rc | default('') }}"
+          successful: "{{ steamroller_package_update_simulation_success }}"
       kernel:
         running: "{{ steamroller_running_kernel.stdout | default('') }}"
         installed: "{{ steamroller_installed_kernels.stdout_lines | default([]) }}"
@@ -1136,12 +1147,11 @@
         {{ steamroller_updates.stdout | default('') }}
         {{ steamroller_updates.stderr | default('') }}
 
-        {% if steamroller_package_manager == 'yum' %}YUM UPDATE --ASSUMENO
-        RC={{ steamroller_yum_update_simulation.rc | default('') }}
-        RESOLUTION={{ 'PASS' if steamroller_yum_update_simulation_success | bool else 'FAIL' }}
-        {{ steamroller_yum_update_simulation.stdout | default('') }}
-        {{ steamroller_yum_update_simulation.stderr | default('') }}
-        {% endif %}
+        {{ steamroller_package_manager | upper }} UPDATE --ASSUMENO
+        RC={{ steamroller_package_update_simulation.rc | default('') }}
+        RESOLUTION={{ 'PASS' if steamroller_package_update_simulation_success | bool else 'FAIL' }}
+        {{ steamroller_package_update_simulation.stdout | default('') }}
+        {{ steamroller_package_update_simulation.stderr | default('') }}
     - name: postgresql.txt
       content: |-
         POSTGRESQL PACKAGE INVENTORY

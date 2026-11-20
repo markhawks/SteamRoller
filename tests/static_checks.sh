@@ -111,7 +111,7 @@ grep -q 'Current version: \*\*0.3.3\*\*' README.md
 grep -q 'RHEL 8.6+ control-node mini-HOWTO' README.md
 grep -q 'RHEL 7.0-7.9, RHEL 8.0-8.10, and RHEL 9.x' roles/precheck/tasks/main.yml
 grep -q 'Managed OS policy: RHEL 7.0-7.9 assessment' scripts/show_config.py
-grep -q 'yum update --assumeno' roles/precheck/tasks/main.yml
+grep -q 'update --assumeno' roles/precheck/tasks/main.yml
 grep -q 'SteamRoller update is not supported on RHEL' scripts/run_dnf_update.py
 grep -q 'complete -F _steamroller strl' completions/steamroller.bash
 grep -q '%{_bindir}/strl' packaging/rpm/steamroller.spec
