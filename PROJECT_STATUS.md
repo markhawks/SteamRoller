@@ -1,11 +1,12 @@
 # SteamRoller Project Status
 
-Last updated: 2026-11-02
+Last updated: 2026-11-20
 
-Current version: **0.3.3**
+Current version: **0.3.4**
 
-Status: version 0.3.3 released; core update and reboot workflows validated on
-real RHEL 9 systems, with RHEL 8 managed-host validation pending
+Status: version 0.3.4 released; core update and reboot workflows validated on
+real RHEL 9 systems, RHEL 7 assessment implemented, and full RHEL 7/8 managed-
+host validation pending
 
 Control-node compatibility: RHEL 9/10 supported; RHEL 8.6+ with Python 3.6 is
 experimental and pending complete workflow validation.
@@ -234,7 +235,7 @@ Configuration is validated before contacting managed hosts.
 - native DNF terminal display and manual confirmation;
 - automated tests for PostgreSQL unit detection and update-option completion.
 
-The 0.3.3 workflow, including interactive DNF update and controlled force mode,
+The 0.3.4 workflow, including interactive DNF update and controlled force mode,
 has been exercised successfully by the operator. PostgreSQL unit restoration still
 requires validation on a non-production host containing a customized unit.
 
@@ -256,6 +257,8 @@ requires validation on a non-production host containing a customized unit.
 - validate the complete workflow from a clean RHEL 8.6+ control node;
 - validate precheck, update, PostgreSQL protection, and reboot against RHEL 8
   managed hosts across representative minor releases;
+- complete read-only precheck validation against representative RHEL 7 systems
+  with YUM, Satellite, vendor dependencies, and unavailable-content cases;
 - define report retention and backup policy;
 - improve failed-systemd-unit classification by unit type;
 - complete RPM build and clean installation testing;

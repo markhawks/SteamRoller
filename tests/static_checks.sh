@@ -41,6 +41,7 @@ required_files=(
     docs/RELEASE_NOTES_0.3.1.md
     docs/RELEASE_NOTES_0.3.2.md
     docs/RELEASE_NOTES_0.3.3.md
+    docs/RELEASE_NOTES_0.3.4.md
     packaging/rpm/steamroller.spec
     tests/test_dnf_update.py
     tests/managed_os_policy.yml
@@ -56,12 +57,19 @@ for required_file in "${required_files[@]}"; do
     }
 done
 
-forbidden_identifiers='mena''rini|mcd''lnx|mcd''l|rh98''virt|server0''[1-9]|app0''[1-9]|alfresco-''dev|ipm-''dev'
+forbidden_identifiers='mena''rini|mcd''lnx|men''lnx|mcd''l|10[.]1[.]2[.]70|192[.]168[.]124[.]98|rh98''virt|server0''[1-9]|app0''[1-9]|alfresco-?''dev|ipm-''dev|idm-prod(-lux)?|netbackup-prod'
+publishable_paths=(
+    .gitignore LICENSE Makefile PROJECT_STATUS.md README.md SESSION_HANDOFF.md
+    STEAMROLLER_PROJECT_EN.md VERSION ansible.cfg bin completions config docs
+    packaging playbooks roles scripts setup tests ssh-keys/README.md
+    inventories/dev/hosts.yml.example inventories/dev/steamroller.yml.example
+    inventories/dev/group_vars/all.yml
+)
 if grep -REin \
+    --exclude='static_checks.sh' \
     "$forbidden_identifiers" \
-    README.md PROJECT_STATUS.md STEAMROLLER_PROJECT_EN.md docs \
-    tests/test_inventory_manager.py tests/test_ssh_key_resolver.py; then
-    printf 'Documentation or tests contain forbidden customer or legacy host identifiers.\n' >&2
+    "${publishable_paths[@]}"; then
+    printf 'Publishable source contains forbidden customer or legacy identifiers.\n' >&2
     exit 1
 fi
 
@@ -105,9 +113,9 @@ grep -q -- '-F|--force|--Force' bin/steamroller
 grep -q 'Suggested reboot command' scripts/render_summary.py
 grep -q 'POSTGRESQL DETAILS' roles/precheck/templates/precheck.txt.j2
 grep -q 'postgresql.txt' roles/precheck/tasks/main.yml
-grep -qx '0.3.3' VERSION
-grep -q '^Version:[[:space:]]*0.3.3$' packaging/rpm/steamroller.spec
-grep -q 'Current version: \*\*0.3.3\*\*' README.md
+grep -qx '0.3.4' VERSION
+grep -q '^Version:[[:space:]]*0.3.4$' packaging/rpm/steamroller.spec
+grep -q 'Current version: \*\*0.3.4\*\*' README.md
 grep -q 'RHEL 8.6+ control-node mini-HOWTO' README.md
 grep -q 'RHEL 7.0-7.9, RHEL 8.0-8.10, and RHEL 9.x' roles/precheck/tasks/main.yml
 grep -q 'Managed OS policy: RHEL 7.0-7.9 assessment' scripts/show_config.py
@@ -124,7 +132,7 @@ bash -n setup/manual/install-source-path.sh
 bash -n completions/steamroller.bash
 short_command_test_dir="$(mktemp -d /tmp/steamroller-short-command.XXXXXX)"
 ln -s "$project_root/bin/steamroller" "$short_command_test_dir/strl"
-"$short_command_test_dir/strl" version | grep -qx '0.3.3'
+"$short_command_test_dir/strl" version | grep -qx '0.3.4'
 unlink "$short_command_test_dir/strl"
 rmdir "$short_command_test_dir"
 python3 -m py_compile scripts/render_summary.py

@@ -4,7 +4,7 @@ Prepared: 2026-11-20
 
 ## Current release
 
-- Version: `0.3.3`
+- Version: `0.3.4`
 - Branch: `main`
 - License: AGPL-3.0-or-later
 - Source workflow validated primarily against real RHEL 9 systems.
@@ -64,3 +64,7 @@ ansible-playbook --syntax-check playbooks/15-repo-off.yml
 
 Do not commit real inventories, reports, repository backups, or private SSH
 keys. Runtime and customer-specific paths are already covered by `.gitignore`.
+Never copy customer names, domains, hostnames, IP addresses, environment names,
+or report contents into public documentation, examples, tests, commits, tags,
+or release assets. Always replace operational evidence with fictitious names
+under reserved example domains and documentation address ranges.

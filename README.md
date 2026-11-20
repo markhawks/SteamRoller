@@ -12,7 +12,7 @@ RHEL 10 control node. It provides
 multi-host prechecks, persistent evidence, repository safety controls, and a
 confirmed sequential multi-host reboot workflow.
 
-Current version: **0.3.3**
+Current version: **0.3.4**
 
 ## Highlights
 
@@ -128,7 +128,7 @@ steamroller inventory list
 Expected SteamRoller version:
 
 ```text
-0.3.3
+0.3.4
 ```
 
 Managed hosts:
@@ -396,6 +396,7 @@ threshold, precheck reports include a complete suggested reboot command.
 
 - [Complete command HOWTO](docs/HOWTO.md)
 - [Project status](PROJECT_STATUS.md)
+- [Version 0.3.4 release notes](docs/RELEASE_NOTES_0.3.4.md)
 - [Version 0.3.3 release notes](docs/RELEASE_NOTES_0.3.3.md)
 - [Version 0.3.2 release notes](docs/RELEASE_NOTES_0.3.2.md)
 - [Version 0.3.1 release notes](docs/RELEASE_NOTES_0.3.1.md)

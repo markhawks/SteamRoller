@@ -1,5 +1,5 @@
 Name:           steamroller
-Version:        0.3.3
+Version:        0.3.4
 Release:        1%{?dist}
 Summary:        RHEL 7 assessment and safe RHEL 8/9 remote patching automation
 License:        AGPL-3.0-or-later
@@ -74,6 +74,10 @@ ln -s /opt/steamroller/bin/steamroller %{buildroot}%{_bindir}/strl
 %dir %{_localstatedir}/log/steamroller
 
 %changelog
+* Fri Nov 20 2026 SteamRoller Team <root@localhost> - 0.3.4-1
+- Add RHEL 7 read-only precheck support, YUM transaction simulation, package
+  health correlation, remediation guidance, and explicit update blocking
+
 * Mon Nov 02 2026 SteamRoller Team <root@localhost> - 0.3.3-1
 - Add host-scoped checks, remote-filesystem inode exclusions, resilient inode
   fact handling, and detailed DNF dependency failures in terminal summaries
